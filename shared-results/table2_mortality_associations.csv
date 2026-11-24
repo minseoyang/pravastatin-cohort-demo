@@ -1,0 +1,26 @@
+section,analysis,outcome,effect_measure,estimate,ci_low,ci_high,p_value,n_exposed,n_unexposed,status
+Primary (PSM),"Primary: 1:1 PSM, Cox (pair-clustered)",28-day all-cause mortality,HR,0.732972927817997,0.4747898440105638,1.1315518216984717,0.1595184379596246,252.0,252.0,estimated
+Primary (PSM),PSM + adjustment for residual imbalance,28-day all-cause mortality,HR,0.7347865062467904,0.4763310811274219,1.1334788577819774,0.1621245807417939,252.0,252.0,estimated
+Multivariable Cox (full cohort),Model 1: unadjusted Cox,28-day all-cause mortality,HR,0.5594253475967175,0.4242061305902553,0.7377468097838406,3.903588751463571e-05,252.0,9650.0,estimated
+Multivariable Cox (full cohort),"Model 2: Cox adjusted for age, sex, race",28-day all-cause mortality,HR,0.4827175222005386,0.3657991771433423,0.6370058239582034,2.689553989773847e-07,252.0,9650.0,estimated
+Multivariable Cox (full cohort),Model 3: Cox adjusted for all PS covariates,28-day all-cause mortality,HR,0.7592421480611617,0.5722632924543759,1.0073136736067774,0.0562032714137858,252.0,9650.0,estimated
+Secondary outcomes (PSM),"90-day all-cause mortality, PSM Cox",90-day all-cause mortality,HR,0.7646579481076778,0.5349522348511477,1.0929981024697266,0.1401306892234131,252.0,252.0,estimated
+Secondary outcomes (PSM),"28-day all-cause mortality (binary), PSM OR",28-day all-cause mortality (binary),OR,0.7046874884133328,0.4300997654753128,1.1545796956608534,0.163271427255996,252.0,252.0,estimated
+Secondary outcomes (PSM),"28-day all-cause mortality (binary), PSM RD",28-day all-cause mortality (binary),RD,-0.0631244861822551,-0.1529112285065718,0.0266622561420615,0.1664817994229438,252.0,252.0,estimated
+Secondary outcomes (PSM),"in-hospital mortality, PSM OR",in-hospital mortality,OR,0.7150083853827457,0.4334860850992223,1.1793619420347068,0.1877358983788418,252.0,252.0,estimated
+Secondary outcomes (PSM),"in-hospital mortality, PSM RD",in-hospital mortality,RD,-0.0516110162524505,-0.129148250219648,0.0259262177147469,0.1906095892352133,252.0,252.0,estimated
+Secondary outcomes (PSM),"ICU mortality, PSM OR",ICU mortality,OR,0.7674846179726152,0.4225038099597729,1.3941475199493554,0.3834189158033363,252.0,252.0,estimated
+Secondary outcomes (PSM),"ICU mortality, PSM RD",ICU mortality,RD,-0.0277848921773224,-0.0897978687019167,0.0342280843472718,0.3782128217399458,252.0,252.0,estimated
+Secondary outcomes (PSM),"ICU length of stay (days), PSM (imputation 1 matched set)",ICU length of stay (days),median difference,-0.7325983796296298,,,0.0152519284116686,252.0,252.0,estimated
+Secondary outcomes (PSM),"hospital length of stay (days), PSM (imputation 1 matched set)",hospital length of stay (days),median difference,0.0975694444444439,,,0.8760443358885965,252.0,252.0,estimated
+Sensitivity: confounding control,"(a) stabilized IPTW, truncated (design-specified ATE)",28-day all-cause mortality,HR,0.8490747626871258,0.6360733007820328,1.1334038887433886,0.2668688487965315,252.0,9650.0,estimated
+Sensitivity: confounding control,"(b) stabilized IPTW, untruncated",28-day all-cause mortality,HR,0.9222679393972404,0.7031712538125123,1.2096315761321248,0.5586879388652292,252.0,9650.0,estimated
+Sensitivity: confounding control,(c) overlap weights,28-day all-cause mortality,HR,0.7375746248884412,0.5027726860599395,1.0820323823527442,0.1195180207555679,252.0,9650.0,estimated
+Sensitivity: confounding control,"(d) 1:1 PSM, caliper 0.2 SD of logit PS",28-day all-cause mortality,HR,0.7329872217873852,0.4748019498206038,1.1315671039400492,0.1595388554154146,252.0,252.0,estimated
+Sensitivity: confounding control,(e) complete-case 1:1 PSM (n=7142),28-day all-cause mortality,HR,0.9513783151220132,0.6075943736359696,1.4896791967772385,0.8270464108645129,166.0,166.0,estimated
+Sensitivity: confounding control,"(f) no prior statin use, PSM with PS re-estimated",28-day all-cause mortality,HR,0.9605699981272088,0.4256396202256743,2.167783912627524,0.9215636588069672,84.0,84.0,estimated
+Sensitivity: confounding control,"(g) prior statin use, PSM with PS re-estimated",28-day all-cause mortality,HR,0.6558525235270193,0.3915357467889463,1.0986034765521004,0.1082932438556578,168.0,168.0,estimated
+Sensitivity: immortal time,"(h) 48-hour landmark, 1:1 PSM Cox",death from 48 h to day 28,HR,0.6826257627078655,0.428017136104562,1.0886898972163102,0.1081063099189697,244.0,244.0,estimated
+Sensitivity: immortal time,"(i) time-dependent exposure Cox, adjusted for PS covariates",28-day all-cause mortality,HR,0.7859557238737425,0.5923346298514197,1.042867272583485,0.0950904188185703,252.0,9650.0,estimated
+Design-specified outcome,"Design outcome: in-hospital death censored at discharge, PSM Cox",28-day in-hospital mortality (design-specified),HR,0.712461374568537,0.4336963075024421,1.1704070370698991,0.1793357425184058,252.0,252.0,estimated
+Design-specified outcome,"Design outcome: Fine-Gray (discharge alive competing), PSM",28-day in-hospital mortality (subdistribution),sHR,0.7260710906553084,0.4476774277786607,1.1775872446846605,0.1932875426214773,252.0,252.0,estimated
