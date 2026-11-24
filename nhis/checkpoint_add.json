@@ -1,0 +1,12 @@
+[
+    {
+        "checkpoint": "Verify participant age meets the inclusion threshold of ≥20 years using the condition nhid_jk.AGE_GROUP > 3.",
+        "score": 0.0,
+        "relevance": 1.0
+    },
+    {
+        "checkpoint": "Verify follow-up initiation is set to the index date for all included participants.",
+        "score": 0.0,
+        "relevance": 1.0
+    }
+]

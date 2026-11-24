@@ -1,0 +1,98 @@
+[
+  {
+    "analysis_method": "Data Preprocessing",
+    "operation": "Convert 'INDEX_DATE', 'FIRST_FRACTURE_DATE', 'CENSORING_DATE', and 'FOLLOW_UP_END_DATE' to datetime objects. Ensure 'EXPOSURE_GROUP', 'SEX', 'AGE_GROUP', 'CTRB_PT_TYPE_CD', 'DFAB_GRD_CD', 'cosick1'-'cosick8', 'codrug1'-'codrug6', and 'FRACTURE_INDICATOR' are treated as categorical/integer types, and 'healthcare_utilization_count' and 'FOLLOW_UP_DURATION' are treated as continuous/integer types.",
+    "data_input": {
+      "name": "cohort.csv",
+      "format": "csv"
+    },
+    "data_output": {
+      "name": "processed_cohort.csv",
+      "format": "csv"
+    }
+  },
+  {
+    "analysis_method": "Baseline Characteristics Analysis (Pre-matching)",
+    "operation": "Group the data by 'EXPOSURE_GROUP'. For each covariate ('SEX', 'AGE_GROUP', 'CTRB_PT_TYPE_CD', 'DFAB_GRD_CD', 'cosick1'-'cosick8', 'codrug1'-'codrug6', 'healthcare_utilization_count'), calculate the count (n), percentage (%) for categorical variables, and mean (SD) for continuous variables. Calculate the Standardized Mean Difference (SMD) for all covariates between the two groups to assess baseline imbalance.",
+    "data_input": {
+      "name": "processed_cohort.csv",
+      "format": "csv"
+    },
+    "data_output": {
+      "name": "table1_unmatched_characteristics.csv",
+      "format": "csv"
+    }
+  },
+  {
+    "analysis_method": "Propensity Score Estimation",
+    "operation": "Estimate propensity scores using a logistic regression model where 'EXPOSURE_GROUP' is the dependent variable and the baseline covariates ('SEX', 'AGE_GROUP', 'CTRB_PT_TYPE_CD', 'DFAB_GRD_CD', 'cosick1'-'cosick8', 'codrug1'-'codrug6', 'healthcare_utilization_count') are the independent variables.",
+    "data_input": {
+      "name": "processed_cohort.csv",
+      "format": "csv"
+    },
+    "data_output": {
+      "name": "cohort_with_ps.csv",
+      "format": "csv"
+    }
+  },
+  {
+    "analysis_method": "Propensity Score Matching",
+    "operation": "Perform 1:1 nearest-neighbor propensity score matching between the CCB group (EXPOSURE_GROUP=1) and the DU group (EXPOSURE_GROUP=0) using the calculated propensity scores. Use a caliper of 0.2 standard deviations of the propensity score.",
+    "data_input": {
+      "name": "cohort_with_ps.csv",
+      "format": "csv"
+    },
+    "data_output": {
+      "name": "matched_cohort.csv",
+      "format": "csv"
+    }
+  },
+  {
+    "analysis_method": "Baseline Characteristics Analysis (Post-matching)",
+    "operation": "In the 'matched_cohort.csv', recalculate the count (n), percentage (%), mean (SD), and Standardized Mean Difference (SMD) for all baseline covariates. Compare the post-matching SMD with the pre-matching SMD to verify covariate balance (target SMD < 0.1).",
+    "data_input": {
+      "name": "matched_cohort.csv",
+      "format": "csv"
+    },
+    "data_output": {
+      "name": "table1_matched_characteristics.csv",
+      "format": "csv"
+    }
+  },
+  {
+    "analysis_method": "Survival Curve Estimation",
+    "operation": "Estimate Kaplan-Meier survival curves for the incidence of fracture over 'FOLLOW_UP_DURATION' for the CCB and DU groups in the matched cohort. Perform a log-rank test to compare the survival distributions between the two groups.",
+    "data_input": {
+      "name": "matched_cohort.csv",
+      "format": "csv"
+    },
+    "data_output": {
+      "name": "km_survival_results.csv",
+      "format": "csv"
+    }
+  },
+  {
+    "analysis_method": "Primary Statistical Modeling (Cox Proportional Hazards)",
+    "operation": "Fit a Cox proportional hazards regression model in the matched cohort. The model structure is: 'FRACTURE_INDICATOR' ~ 'EXPOSURE_GROUP'. The time scale is 'FOLLOW_UP_DURATION'. Calculate the Hazard Ratio (HR), 95% Confidence Interval (CI), and p-value for the effect of 'EXPOSURE_GROUP' (CCB vs. DU).",
+    "data_input": {
+      "name": "matched_cohort.csv",
+      "format": "csv"
+    },
+    "data_output": {
+      "name": "cox_ph_regression_results.csv",
+      "format": "csv"
+    }
+  },
+  {
+    "analysis_method": "Proportional Hazards Assumption Testing",
+    "operation": "Evaluate the proportional hazards assumption for the Cox model by calculating Schoenfeld residuals and performing a global test and individual covariate tests for time-dependency.",
+    "data_input": {
+      "name": "matched_cohort.csv",
+      "format": "csv"
+    },
+    "data_output": {
+      "name": "ph_assumption_diagnostics.csv",
+      "format": "csv"
+    }
+  }
+]

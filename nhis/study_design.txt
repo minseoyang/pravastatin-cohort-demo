@@ -1,0 +1,33 @@
+1) Research objective
+To evaluate whether calcium channel blocker (CCB) initiation is associated with a higher risk of incident fracture compared with diuretic (DU) initiation among adults with hypertension.
+
+2) Research data source
+Korean National Health Insurance Service Sample Cohort Data, version 1.0.
+
+3) Study target
+Adults aged ≥20 years (`nhid_jk.AGE_GROUP > 3`) with at least one hypertension diagnosis (`I10` in `nhid_gy40_t1.SICK_SYM`, `nhid_gy20_t1.MAIN_SICK`, or `SUB_SICK`). Eligibility requires continuous insurance coverage verified by `nhid_jk.STND_Y` for every calendar year overlapping the 365-day baseline period preceding the index date. Exclude patients with any CCB or DU prescription in 2002 or within the 365-day baseline period, patients prescribed both CCB and DU on the index date, and patients with a fracture diagnosis during the baseline period. All specified requirements are implementable with the provided schema.
+
+4) Exposure definition
+Index date is the date of the first eligible CCB or DU prescription between 2003 and 2012, identified from `nhid_gy60_t1.RECU_FR_DT` where `nhid_gy60_t1.GNL_NM_CD` matches the first four characters of `Study drug mapping.gnl_nm_cd_4` (group=1: CCB, group=0: DU). Patients are classified as CCB initiators or DU initiators based on the class prescribed on the index date. Follow-up begins on the index date. Patients are excluded if both classes appear on the same index date.
+
+5) Outcome definition
+Incident fracture is defined as the first occurrence of diagnosis codes with prefixes S02, S07, S12, S22, S23, S42, S52, S62, S72, S82, or S92 in `nhid_gy40_t1.SICK_SYM` or `nhid_gy20_t1.MAIN_SICK`/`SUB_SICK` occurring on or after the index date.
+
+6) Confounders
+Baseline covariates measured within the 365-day period before the index date:
+- Demographics: `nhid_jk.SEX`, `nhid_jk.AGE_GROUP`
+- Socioeconomic status: `nhid_jk.CTRB_PT_TYPE_CD`
+- Disability severity: `nhid_jk.DFAB_GRD_CD`
+- Comorbidities: Diagnostic codes from `nhid_gy40_t1.SICK_SYM`/`nhid_gy20_t1.MAIN_SICK`/`SUB_SICK` matched to `Comorbidity mapping.code`
+- Concomitant medications: Drug codes from `nhid_gy60_t1.GNL_NM_CD` matched to `Concomitant medication mapping.code`
+- Healthcare utilization: Claim count in `nhid_gy20_t1` (outpatient/inpatient) within baseline.
+
+7) Statistical strategy
+
+Propensity score matching will be applied to reduce baseline differences between CCB and DU initiators. Propensity scores will be estimated using baseline demographic and clinical covariates, followed by 1:1 nearest-neighbor matching. Covariate balance before and after matching will be assessed using standardized mean differences.
+
+Cox proportional hazards regression will be performed in the propensity score-matched cohort with left truncation at the index date. Time scale: days from index date to outcome, censoring, or end of available data. Proportional hazards assumption will be evaluated using Schoenfeld residuals. All baseline confounders will be modeled as time-invariant covariates. Complete-case analysis will be applied per cohort eligibility criteria.
+
+8) Analysis method
+
+Primary analysis: Cox model in the propensity score-matched cohort estimating hazard ratios and 95% confidence intervals for fracture risk comparing CCB initiators vs. DU initiators. Secondary analysis: Kaplan–Meier survival curves with log-rank test in the matched cohort. Censoring will occur at death (`nhid_jk.DTH_YM`), loss of insurance eligibility (`nhid_jk.STND_Y` gaps), or end of data availability. Sensitivity analyses will test robustness by varying baseline period length and excluding events within 30 days post-index.

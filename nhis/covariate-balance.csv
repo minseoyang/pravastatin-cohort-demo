@@ -1,0 +1,20 @@
+Covariate,Absolute SMD before matching,Absolute SMD after matching
+SEX,0.17849,0.01573
+AGE_GROUP,0.06737,0.00844
+CTRB_PT_TYPE_CD,0.00268,0.00985
+DFAB_GRD_CD,0.01181,0.04252
+cosick1,0.04943,0.00547
+cosick2,0.07792,0.01599
+cosick3,0.15159,0.03652
+cosick4,0.00679,0.03771
+cosick5,0.05944,0.00787
+cosick6,0.07668,0.00979
+cosick7,0.10597,0.03951
+cosick8,0.07035,0.01062
+codrug1,0.24615,0.01459
+codrug2,0.10066,0.02412
+codrug3,0.08497,0.0102
+codrug4,0.13869,0.01693
+codrug5,0.10103,0.01417
+codrug6,0.07993,0.01177
+healthcare_utilization_count,0.19204,0.01616
