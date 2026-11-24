@@ -1,0 +1,123 @@
+[
+  {
+    "step_name": "Extract ICU stays and link to patient demographics",
+    "input": [
+      "icu.duckdb.icustays",
+      "hosp.duckdb.patients"
+    ],
+    "operations description": "Join icustays and patients on subject_id. Compute patient age at ICU admission by calculating the difference between intime and the birth year derived from anchor_year and anchor_age.",
+    "output": "temp_icu_stays_with_demographics"
+  },
+  {
+    "step_name": "Filter for adult patients aged 18 or older at ICU admission",
+    "input": [
+      "temp_icu_stays_with_demographics"
+    ],
+    "operations description": "Filter temp_icu_stays_with_demographics to retain only records where the computed age at intime is greater than or equal to 18.",
+    "output": "cohort_adult_icu_stays"
+  },
+  {
+    "step_name": "Identify sepsis diagnoses associated with each hospital admission",
+    "input": [
+      "hosp.duckdb.diagnoses_icd",
+      "hosp.duckdb.admissions"
+    ],
+    "operations description": "Join diagnoses_icd and admissions on hadm_id. Filter for diagnosis records containing ICD codes for sepsis, severe sepsis, or septic shock.",
+    "output": "temp_sepsis_diagnoses"
+  },
+  {
+    "step_name": "Identify evidence of infection for each hospital admission",
+    "input": [
+      "hosp.duckdb.microbiologyevents",
+      "hosp.duckdb.pharmacy",
+      "hosp.duckdb.prescriptions"
+    ],
+    "operations description": "Extract microbiology culture records from microbiologyevents indicating positive results. Extract medication order records from pharmacy and prescriptions indicating broad-spectrum antibiotic initiation. Filter antibiotic records to those with starttime within 48 hours of admissions.admittime.",
+    "output": "temp_infection_evidence"
+  },
+  {
+    "step_name": "Define sepsis cohort by combining diagnosis and infection evidence",
+    "input": [
+      "temp_sepsis_diagnoses",
+      "temp_infection_evidence",
+      "cohort_adult_icu_stays",
+      "hosp.duckdb.admissions"
+    ],
+    "operations description": "Join cohort_adult_icu_stays with admissions on hadm_id. Filter to retain only ICU stays associated with hospital admissions that satisfy both the sepsis diagnosis condition from Step 3 and the infection evidence condition from Step 4.",
+    "output": "cohort_sepsis_icu_stays"
+  },
+  {
+    "step_name": "Identify pravastatin exposure within the first 48 hours of ICU stay",
+    "input": [
+      "hosp.duckdb.pharmacy",
+      "hosp.duckdb.prescriptions",
+      "cohort_sepsis_icu_stays"
+    ],
+    "operations description": "Filter pharmacy and prescriptions records where medication or drug equals 'Pravastatin'. Retain only records where starttime falls between cohort_sepsis_icu_stays.intime and intime plus 48 hours.",
+    "output": "temp_pravastatin_exposure"
+  },
+  {
+    "step_name": "Identify exposure to other statins within the first 48 hours of ICU stay",
+    "input": [
+      "hosp.duckdb.pharmacy",
+      "hosp.duckdb.prescriptions",
+      "cohort_sepsis_icu_stays"
+    ],
+    "operations description": "Filter pharmacy and prescriptions records where medication or drug corresponds to any statin other than pravastatin. Retain only records where starttime falls between cohort_sepsis_icu_stays.intime and intime plus 48 hours.",
+    "output": "temp_other_statin_exposure"
+  },
+  {
+    "step_name": "Exclude patients with other statin exposure and define final exposure status",
+    "input": [
+      "temp_pravastatin_exposure",
+      "temp_other_statin_exposure",
+      "cohort_sepsis_icu_stays"
+    ],
+    "operations description": "Perform a left join of temp_other_statin_exposure to cohort_sepsis_icu_stays on stay_id. Assign exposure status: pravastatin user if matched in temp_pravastatin_exposure, non-exposed if unmatched in both exposure tables, and excluded if matched in temp_other_statin_exposure. Filter out excluded records.",
+    "output": "cohort_exposure_defined"
+  },
+  {
+    "step_name": "Derive baseline covariates prior to or within the first 24 hours of ICU admission",
+    "input": [
+      "cohort_exposure_defined",
+      "hosp.duckdb.admissions",
+      "hosp.duckdb.diagnoses_icd",
+      "hosp.duckdb.chartevents",
+      "hosp.duckdb.d_items",
+      "hosp.duckdb.labevents",
+      "hosp.duckdb.inputevents",
+      "hosp.duckdb.pharmacy"
+    ],
+    "operations description": "Join cohort_exposure_defined with admissions on hadm_id. Extract demographics and insurance from patients and admissions. Extract comorbidities from diagnoses_icd prior to admittime. Extract early vital signs and laboratory values from chartevents and labevents within 24 hours of intime. Extract concurrent medications (vasopressors, corticosteroids, broad-spectrum antibiotics, insulin) from pharmacy and inputevents within 24 hours of intime.",
+    "output": "temp_baseline_covariates"
+  },
+  {
+    "step_name": "Record prior statin use as a baseline characteristic",
+    "input": [
+      "hosp.duckdb.pharmacy",
+      "hosp.duckdb.prescriptions",
+      "hosp.duckdb.admissions"
+    ],
+    "operations description": "Filter pharmacy and prescriptions records for any statin where starttime occurs more than 7 days before admissions.admittime.",
+    "output": "temp_prior_statin_use"
+  },
+  {
+    "step_name": "Define short-term mortality outcome",
+    "input": [
+      "cohort_exposure_defined",
+      "hosp.duckdb.admissions"
+    ],
+    "operations description": "Join cohort_exposure_defined with admissions on hadm_id. Determine 28-day mortality status by comparing admissions.deathtime or admissions.hospital_expire_flag against intime. Censor follow-up at admissions.dischtime if the patient is discharged alive before 28 days.",
+    "output": "cohort_outcome_defined"
+  },
+  {
+    "step_name": "Aggregate cohort components to patient level",
+    "input": [
+      "cohort_outcome_defined",
+      "temp_baseline_covariates",
+      "temp_prior_statin_use"
+    ],
+    "operations description": "Aggregate each input table to the patient level by grouping on subject_id. For repeated or time-varying measures, apply explicit aggregation rules: take the maximum value for severity indices, the earliest timestamp for event occurrence, and binary flags for any medication exposure within the defined windows. Join the aggregated components on subject_id and retain exactly one row per patient.",
+    "output": "final_cohort_patient_level"
+  }
+]

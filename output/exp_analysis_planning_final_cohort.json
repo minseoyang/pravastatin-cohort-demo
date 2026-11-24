@@ -1,0 +1,170 @@
+[
+  {
+    "analysis_method": "Data import",
+    "operation": "Open \"D:/mimic-iv-3.1/hosp.duckdb\" read-only (DuckDB ATTACH ... READ_ONLY), copy the table final_cohort_patient_level unchanged with SELECT * to Parquet, and write nothing to the DuckDB file.",
+    "data_input": {"name": "hosp.duckdb::final_cohort_patient_level", "format": "DuckDB table"},
+    "data_output": {"name": "cohort_imported.parquet", "format": "Parquet"}
+  },
+  {
+    "analysis_method": "Schema and identifier validation",
+    "operation": "Verify 9902 rows and 146 columns, that subject_id and stay_id are nonmissing and unique (first qualifying septic ICU stay per patient) and that hadm_id is nonmissing. Write one row per column (dtype, missing count) and per identifier check, and stop if an identifier check fails.",
+    "data_input": {"name": "cohort_imported.parquet", "format": "Parquet"},
+    "data_output": {"name": "schema_validation.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Exposure, outcome and time-variable consistency check",
+    "operation": "Count violations of: pravastatin_exposed in {0,1} and equal to exposure_status=='pravastatin'; no excluded_other_statin rows; exposed rows have 0<=hours_to_first_pravastatin<=48 and unexposed rows have no pravastatin time; age>=18; death_28d, discharged_alive_before_28d in {0,1} and not both 1; event_status coded 1/2/0; 0<=followup_days<=28 with 28 for event_status 0; followup_end_time>=intime. Stop if any rule fails.",
+    "data_input": {"name": "cohort_imported.parquet", "format": "Parquet"},
+    "data_output": {"name": "value_validation.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Protocol-to-data and published-study concordance assessment",
+    "operation": "Tabulate each study-design element against available columns and against the approach of published MIMIC-IV statin-sepsis cohorts (Front Immunol 2025 doi:10.3389/fimmu.2025.1537172; Front Pharmacol 2025 doi:10.3389/fphar.2025.1610450 and doi:10.3389/fphar.2025.1520107; Front Neurol 2024 doi:10.3389/fneur.2024.1371314). Record: primary outcome is 28-day all-cause mortality from ICU admission using deathtime or dod (post-discharge deaths included, as in the published studies) instead of in-hospital death censored at discharge, which is kept as a design-specified secondary analysis; the primary analysis is 1:1 nearest-neighbour propensity-score matching (caliper 0.05 on the propensity-score scale, without replacement) followed by Cox regression in the matched cohort, with stabilized IPTW, overlap weighting and multivariable Cox models as sensitivity analyses; SAPS II, APS III and LODS are not available so SOFA is used; mechanical ventilation and RRT are not adjusted for because the design treats them as post-exposure; exposure within 48 h follows the published early-statin (48 h) design, and immortal time is examined with a 48-hour landmark and a time-dependent exposure Cox model.",
+    "data_input": {"name": "schema_validation.csv; value_validation.csv", "format": "CSV"},
+    "data_output": {"name": "protocol_concordance.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Analysis-variable specification",
+    "operation": "Write a JSON specification. Exposure: pravastatin_exposed. Primary outcome: time28_all/death28_all (28-day all-cause death from intime using deathtime, else dod at 12:00, complete follow-up to day 28). Secondary outcomes: time90_all/death90_all, hosp_death (hospital_expire_flag), icu_death (deathtime <= outtime + 6 h), icu_los_days (los), hosp_los_days; design-specified outcome followup_days/death_28d/event_status. PS covariates: continuous age, charlson_index, sofa_total_24h, hours_admit_to_icu, weight_kg, heart_rate_max, mbp_min, resp_rate_max, temperature_max, spo2_min, gcs_min, lactate_max, creatinine_max, platelets_min, wbc_max, hemoglobin_min, bicarbonate_min, bun_max, glucose_max, urine_output_24h_ml; binary female, cm_myocardial_infarction, cm_congestive_heart_failure, cm_peripheral_vascular, cm_cerebrovascular, cm_chronic_pulmonary, cm_renal, cm_malignancy, cm_metastatic_tumor, cm_severe_liver, cm_hypertension, cm_dyslipidemia, diabetes_any, prior_statin_use, has_prior_admission, med_vasopressor_24h, med_corticosteroid_24h, med_broad_abx_24h, med_insulin_24h; categorical race_group (ref White), insurance (ref Medicare), admission_type_grp (ref EW EMER.), first_careunit_grp (ref MICU), sepsis_category (ref sepsis). Log-transform lactate_max, creatinine_max, wbc_max, bun_max, glucose_max; log1p urine_output_24h_ml and hours_admit_to_icu (negative hours set to 0). Subgroups as in the published studies plus the design: age (<65, >=65), sex, sofa_tertile (SAPS II substitute), Charlson index (<3, >=3), septic shock (sepsis_category), organ_failure_any. Exclude post-baseline or outcome-defining variables and pf_ratio_min/sofa_respiration (~50% missing) from covariates.",
+    "data_input": {"name": "protocol_concordance.csv", "format": "CSV"},
+    "data_output": {"name": "analysis_variable_specification.json", "format": "JSON"}
+  },
+  {
+    "analysis_method": "Analysis cohort preparation",
+    "operation": "In DuckDB SQL derive the covariates of the specification (female, diabetes_any, grouped categories, insurance 'Unknown', urine output < 0 set to missing, log transforms), the subgroup variables, and the outcomes: death_time_all = coalesce(deathtime, dod + 12 h); death28_all = death_time_all <= intime + 28 days, time28_all = days from intime to min(death_time_all, intime + 28 days) floored at 0; likewise death90_all/time90_all; hosp_death = hospital_expire_flag; icu_death = deathtime <= outtime + 6 h; icu_los_days = los; hosp_los_days = (dischtime - admittime) in days. Keep the design-specified outcome columns. No rows are dropped.",
+    "data_input": {"name": "cohort_imported.parquet; analysis_variable_specification.json", "format": "Parquet and JSON"},
+    "data_output": {"name": "analysis_cohort.parquet", "format": "Parquet"}
+  },
+  {
+    "analysis_method": "Cohort accounting and crude outcomes",
+    "operation": "By exposure group and overall report n, 28-day and 90-day all-cause deaths with Wilson 95% CI, in-hospital and ICU deaths, median (IQR) ICU and hospital length of stay, design-specified in-hospital 28-day deaths, discharges alive before day 28, exposure timing (0-24 h vs 24-48 h) and deaths before 48 h.",
+    "data_input": {"name": "analysis_cohort.parquet", "format": "Parquet"},
+    "data_output": {"name": "cohort_outcome_counts.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Missing-data assessment",
+    "operation": "Missing count and percentage per specified covariate overall and by exposure group; flag covariates above 40% missing as not imputable (published studies excluded variables above 20-50% missing; none of the specified covariates exceeds 20%).",
+    "data_input": {"name": "analysis_cohort.parquet", "format": "Parquet"},
+    "data_output": {"name": "missingness_summary.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Multiple imputation by chained equations",
+    "operation": "Create m=20 imputations (20 iterations, seeds 20261120+k) of the continuous PS covariates on their transformed scale using chained Bayesian linear regression draws with exposure, death28_all, the Nelson-Aalen cumulative hazard at time28_all and all complete covariates as predictors; clip to the observed range; never impute exposure or outcomes. Save long format with an imputation index.",
+    "data_input": {"name": "analysis_cohort.parquet; missingness_summary.csv", "format": "Parquet and CSV"},
+    "data_output": {"name": "imputed_cohorts.parquet", "format": "Parquet"}
+  },
+  {
+    "analysis_method": "Unweighted baseline summary and standardized mean differences",
+    "operation": "On observed data by exposure group: mean, SD, median, IQR and missing n for continuous covariates; n (%) for binary covariates and categorical levels; absolute SMD with pooled SD.",
+    "data_input": {"name": "analysis_cohort.parquet", "format": "Parquet"},
+    "data_output": {"name": "baseline_unweighted.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Propensity-score estimation",
+    "operation": "Within each imputation fit a multivariable logistic regression of pravastatin_exposed on all PS covariates; record convergence, separation and C-statistic; if any imputation fails to converge or separates, refit all imputations with L2-penalized logistic regression (C=1.0).",
+    "data_input": {"name": "imputed_cohorts.parquet; analysis_variable_specification.json", "format": "Parquet and JSON"},
+    "data_output": {"name": "propensity_scores.parquet", "format": "Parquet"}
+  },
+  {
+    "analysis_method": "Propensity-score overlap assessment",
+    "operation": "Per imputation and exposure group report PS minimum, 1/5/50/95/99th percentiles, maximum and the number outside the other group's range; save 20-bin histogram counts for imputation 1.",
+    "data_input": {"name": "propensity_scores.parquet", "format": "Parquet"},
+    "data_output": {"name": "propensity_overlap.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "1:1 nearest-neighbour propensity-score matching (primary design)",
+    "operation": "Within each imputation, as in the published MIMIC-IV statin-sepsis studies, match each pravastatin patient to one unexposed patient by greedy nearest-neighbour matching on the propensity score without replacement, processing exposed patients in descending PS order, with a caliper of 0.05 on the PS scale. Assign a pair_id to each matched pair, record unmatched exposed patients, and save the matched cohorts in long format.",
+    "data_input": {"name": "propensity_scores.parquet; imputed_cohorts.parquet", "format": "Parquet"},
+    "data_output": {"name": "matched_cohorts.parquet", "format": "Parquet"}
+  },
+  {
+    "analysis_method": "Matched-cohort balance assessment",
+    "operation": "Per imputation compute absolute SMDs of every covariate and categorical level in the matched cohort (pooled SD of the matched groups), average across imputations, classify balanced when the averaged SMD < 0.10, and report matched pairs and unmatched exposed patients per imputation.",
+    "data_input": {"name": "matched_cohorts.parquet", "format": "Parquet"},
+    "data_output": {"name": "matched_balance.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Stabilized IPTW construction (sensitivity design)",
+    "operation": "Within each imputation compute stabilized ATE weights p/PS for exposed and (1-p)/(1-PS) for unexposed (sw_raw), truncate at the 1st and 99th percentiles within each exposure group (sw), and also compute overlap weights (1-PS for exposed, PS for unexposed).",
+    "data_input": {"name": "propensity_scores.parquet; imputed_cohorts.parquet", "format": "Parquet"},
+    "data_output": {"name": "iptw_cohort.parquet", "format": "Parquet"}
+  },
+  {
+    "analysis_method": "Weight diagnostics and weighted balance",
+    "operation": "Per imputation and exposure group summarize sw, sw_raw and overlap weights (mean, SD, percentiles, maximum, effective sample size) and compute weighted SMDs for each weighting, averaged across imputations, with the 0.10 balance criterion.",
+    "data_input": {"name": "iptw_cohort.parquet", "format": "Parquet"},
+    "data_output": {"name": "iptw_diagnostics.csv; weighted_balance.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Publication-style Table 1 construction",
+    "operation": "Build Table 1 in the format of the published studies: per covariate, pravastatin and no-pravastatin summaries and SMD in the full cohort, then in the matched cohort (imputation 1 values for counts; SMD averaged over imputations), plus the IPTW SMD.",
+    "data_input": {"name": "baseline_unweighted.csv; matched_cohorts.parquet; matched_balance.csv; weighted_balance.csv", "format": "CSV and Parquet"},
+    "data_output": {"name": "table1_baseline_characteristics.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Kaplan-Meier survival in the matched cohort",
+    "operation": "Within each imputation's matched cohort estimate Kaplan-Meier survival to day 28 for the primary outcome by exposure group and the log-rank test; report survival on days 0-28 averaged over imputations, 28-day mortality by group and the median log-rank p-value; also report unmatched Kaplan-Meier curves.",
+    "data_input": {"name": "matched_cohorts.parquet; analysis_cohort.parquet", "format": "Parquet"},
+    "data_output": {"name": "km_survival_estimates.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Primary Cox regression in the matched cohort",
+    "operation": "Within each imputation's matched cohort fit a Cox proportional-hazards model of time28_all/death28_all on pravastatin_exposed with robust variance clustered on pair_id (Efron ties), pool log hazard ratios across imputations with Rubin's rules, and report the HR, 95% CI and p-value.",
+    "data_input": {"name": "matched_cohorts.parquet", "format": "Parquet"},
+    "data_output": {"name": "primary_cox_results.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Proportional-hazards assessment",
+    "operation": "Test the PH assumption for pravastatin_exposed in each imputation's primary matched Cox model with scaled Schoenfeld residuals (rank and log time) and report the median p-value; if it is below 0.05, report the 28-day risk difference and odds ratio from the matched cohort as the primary effect measure.",
+    "data_input": {"name": "matched_cohorts.parquet", "format": "Parquet"},
+    "data_output": {"name": "proportional_hazards_test.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Multivariable Cox models in the full cohort",
+    "operation": "As in the published studies, fit three Cox models of the primary outcome in the full cohort within each imputation and pool with Rubin's rules: Model 1 unadjusted; Model 2 adjusted for age, sex and race_group; Model 3 adjusted for all PS covariates.",
+    "data_input": {"name": "imputed_cohorts.parquet", "format": "Parquet"},
+    "data_output": {"name": "multivariable_cox_results.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Secondary outcomes in the matched cohort",
+    "operation": "In each imputation's matched cohort: Cox model for 90-day all-cause mortality (pair-clustered robust variance); logistic regression with pair-clustered sandwich variance for in-hospital mortality and ICU mortality (odds ratios); all pooled by Rubin's rules. Report median (IQR) ICU and hospital length of stay by group with the Mann-Whitney test in the imputation 1 matched cohort.",
+    "data_input": {"name": "matched_cohorts.parquet", "format": "Parquet"},
+    "data_output": {"name": "secondary_outcome_results.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Subgroup analyses",
+    "operation": "In each imputation's matched cohort fit pair-clustered Cox models with pravastatin_exposed, subgroup indicators and their interactions for age (<65, >=65), sex, sofa_tertile, Charlson index (<3, >=3), septic shock and organ_failure_any; pool stratum HRs with Rubin's rules and the interaction with a pooled multivariate Wald test; report strata with fewer than 5 deaths in either group as not_estimable.",
+    "data_input": {"name": "matched_cohorts.parquet", "format": "Parquet"},
+    "data_output": {"name": "subgroup_results.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Sensitivity analyses: alternative confounding control",
+    "operation": "Pooled Cox HRs for the primary outcome with: (a) stabilized truncated IPTW (design-specified ATE), (b) untruncated stabilized IPTW, (c) overlap weights, (d) 1:1 PSM with caliper 0.2 SD of the logit PS, (e) complete-case PSM without imputation, (f) PSM restricted to no prior statin use and (g) to prior statin use, re-estimating the PS in each subset. Report n, deaths and balance (maximum SMD) for each.",
+    "data_input": {"name": "iptw_cohort.parquet; analysis_cohort.parquet; analysis_variable_specification.json", "format": "Parquet and JSON"},
+    "data_output": {"name": "sensitivity_confounding_results.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Sensitivity analyses: immortal time",
+    "operation": "(h) 48-hour landmark: restrict to patients alive at 48 h (time28_all > 2), restart follow-up at the landmark, re-impute, re-estimate the PS, 1:1 PSM (caliper 0.05) and pair-clustered Cox, pooled. (i) Time-dependent exposure: in the full cohort split each patient's follow-up at hours_to_first_pravastatin so exposure switches from 0 to 1 at initiation, fit a time-varying Cox model adjusted for all PS covariates in each imputation, and pool.",
+    "data_input": {"name": "analysis_cohort.parquet; imputed_cohorts.parquet", "format": "Parquet"},
+    "data_output": {"name": "sensitivity_immortal_time_results.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Design-specified in-hospital outcome and competing risks",
+    "operation": "Using the design-specified outcome (followup_days, death_28d; patients discharged alive censored at discharge), fit the pair-clustered Cox model in the matched cohorts and a Fine-Gray model treating discharge alive (event_status 2) as the competing event (competing-event patients kept in the risk set to day 28 because the only censoring is administrative), with matched-cohort cumulative incidence of death at day 28; pool by Rubin's rules.",
+    "data_input": {"name": "matched_cohorts.parquet", "format": "Parquet"},
+    "data_output": {"name": "design_outcome_results.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Publication-style results table with E-value",
+    "operation": "Combine the primary, multivariable, secondary-outcome, sensitivity, design-outcome and subgroup results into Table 2 (analysis, population, outcome, n and deaths by group, effect measure, estimate, 95% CI, p-value, status, note), and add the E-value for the primary HR and its confidence limit closest to 1 using RR = (1-0.5^sqrt(HR))/(1-0.5^sqrt(1/HR)). Keep not_estimable rows without invented values.",
+    "data_input": {"name": "primary_cox_results.csv; multivariable_cox_results.csv; secondary_outcome_results.csv; sensitivity_confounding_results.csv; sensitivity_immortal_time_results.csv; design_outcome_results.csv; subgroup_results.csv", "format": "CSV"},
+    "data_output": {"name": "table2_mortality_associations.csv", "format": "CSV"}
+  },
+  {
+    "analysis_method": "Final standardized result packaging",
+    "operation": "Write an Excel workbook with sheets for protocol concordance, cohort counts, missingness, Table 1, PS overlap, matched balance, weight diagnostics, weighted balance, Kaplan-Meier estimates, PH test, Table 2 and subgroups, plus a matched-cohort Kaplan-Meier figure and a forest plot of main, sensitivity and subgroup HRs as PNG files.",
+    "data_input": {"name": "protocol_concordance.csv; cohort_outcome_counts.csv; missingness_summary.csv; table1_baseline_characteristics.csv; propensity_overlap.csv; matched_balance.csv; iptw_diagnostics.csv; weighted_balance.csv; km_survival_estimates.csv; proportional_hazards_test.csv; table2_mortality_associations.csv; subgroup_results.csv", "format": "CSV"},
+    "data_output": {"name": "pravastatin_28d_mortality_results.xlsx", "format": "XLSX"}
+  }
+]
