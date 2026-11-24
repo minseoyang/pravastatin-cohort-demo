@@ -1,0 +1,69 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta name="theme-color" content="#f5f6fa">
+
+  <meta name="description" content="Choose a research question from image-led study cards, then explore its Hybrid cohort-study automation.">
+
+  <title>Hybrid Cohort Study Automation</title>
+
+  <link rel="icon" href="data:,">
+
+  <link rel="stylesheet" href="screens.css">
+
+  <link rel="stylesheet" href="automation.css">
+
+  <link rel="stylesheet" href="study-gallery.css">
+
+  <link rel="stylesheet" href="output-view.css">
+
+  <link rel="stylesheet" href="pipeline.css">
+
+  <script defer src="data.js"></script>
+
+  <script defer src="provenance.js"></script>
+
+  <script defer src="stages.js"></script>
+
+  <script defer src="pipeline-data.js"></script>
+
+  <script defer src="analysis-data.js"></script>
+
+  <script defer src="shared-results.js"></script>
+  <script defer src="nhis-data.js"></script>
+  <script defer src="automation.js"></script>
+
+  <script defer src="screens.js"></script>
+
+</head>
+
+<body>
+
+  <div class="site-shell">
+
+    <header class="site-header">
+
+      <nav class="main-nav" aria-label="Automation steps"><a href="#/question" data-nav="home" data-home>Home<small>Research question</small></a><a href="#/strategy" data-nav="question">Question Define<small>Strategy Agent</small></a><a href="#/cohort" data-nav="cohort">Cohort Construction<small>Planning · Coding</small></a><a href="#/dataset" data-nav="dataset">Cohort Result<small>Cohort dataset</small></a><a href="#/analysis" data-nav="analysis">Analysis<small>Planning · Coding</small></a><a href="#/results" data-nav="results">Result<small>Result analysis</small></a></nav>
+
+      <div class="header-end"><button class="icon-button" id="sourceInfoButton" aria-label="About the framework" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 7.5v.2"/></svg></button></div>
+
+    </header>
+
+    <main id="main" tabindex="-1" aria-label="Cohort study automation"></main>
+
+  </div>
+
+  <dialog id="detailDialog" aria-labelledby="dialogTitle"><header class="dialog-header"><div><span class="eyebrow" id="dialogEyebrow">DETAILS</span><h2 id="dialogTitle"></h2></div><button class="icon-button" id="closeDialog" aria-label="Close details">×</button></header><div class="dialog-body scroll-region" id="dialogBody"></div></dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+</body>
+
+</html>

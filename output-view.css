@@ -1,0 +1,23 @@
+.recorded-output {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 24px 28px;
+  background: #fcfbfe;
+  color: #382e48;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 400 1rem / 1.7 ui-monospace, Consolas, monospace;
+  tab-size: 4;
+}
+.recorded-output:focus-visible { outline-offset: -4px; }
+.output-panel { display: flex; flex-direction: column; }
+.reference-outputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; min-height: 0; }
+@media (max-width: 760px) {
+  .recorded-output { padding: 16px; font-size: 0.9rem; }
+  .reference-outputs { grid-template-columns: 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+}
+
+.run-output{flex:1;min-height:0;display:flex;flex-direction:column;animation:run-in .35s ease-out}
+.run-output:empty{display:none}
+.run-output .recorded-output{flex:1;min-height:0;margin:0;border:1px solid #eee7f4;border-radius:8px}
