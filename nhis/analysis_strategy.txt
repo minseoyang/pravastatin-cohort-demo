@@ -1,0 +1,9 @@
+1) Statistical strategy
+
+Cox proportional hazards regression with left truncation at the index date. Time scale: days from index date to outcome, censoring, or end of available data. Proportional hazards assumption will be evaluated using Schoenfeld residuals. All baseline confounders will be modeled as time-invariant covariates. Complete-case analysis will be applied per cohort eligibility criteria.
+
+
+
+2) Analysis method
+
+Primary analysis: Cox model estimating adjusted hazard ratios (aHR) and 95% confidence intervals for fracture risk comparing CCB initiators vs. DU initiators. Secondary analysis: Kaplan-Meier survival curves with log-rank test. Censoring will occur at death (`nhid_jk.DTH_YM`), loss of insurance eligibility (`nhid_jk.STND_Y` gaps), or end of data availability. Sensitivity analyses will test robustness by varying baseline period length and excluding events within 30 days post-index.
