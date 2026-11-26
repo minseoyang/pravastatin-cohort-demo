@@ -1,0 +1,311 @@
+/* Agent workflow shared by the introduction and replay. */
+.journey {
+  --journey-gap: clamp(14px, 1.25vw, 22px);
+  --agent-gap: clamp(8px, .85vw, 13px);
+  --group-label-height: 16px;
+  --group-label-gap: 7px;
+  --step-height: 49px;
+  --connector-ink: var(--muted-teal);
+  --connector-center: calc(50% + (var(--group-label-height) + var(--group-label-gap)) / 2);
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.journey-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 24px;
+}
+.journey-title {
+  margin: 0;
+  color: var(--deep-teal);
+  font-size: 1rem;
+  font-weight: 760;
+  letter-spacing: -.018em;
+}
+.journey-head .workflow-help { font-size: .81rem; }
+.journey-intro {
+  --step-height: 65px;
+  gap: 13px;
+  margin-top: 6px;
+  padding: clamp(12px, 1.55vw, 22px);
+  border: 1px solid var(--line);
+  border-top-color: color-mix(in srgb, var(--deep-teal) 16%, transparent);
+  border-radius: var(--radius-panel);
+  background: linear-gradient(110deg, var(--panel) 30%, var(--ice-blue));
+  box-shadow: var(--shadow-panel);
+}
+.journey-intro .journey-title { font-size: clamp(1.25rem, 2vw, 1.7rem); }
+.journey-track {
+  min-width: 0;
+  overflow-x: auto;
+  margin: -3px;
+  padding: 3px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-teal) transparent;
+}
+.journey-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 2.9fr) minmax(0, 1fr) minmax(0, 2.9fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--journey-gap);
+  min-width: 980px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.journey-group {
+  position: relative;
+  display: grid;
+  grid-template-rows: var(--group-label-height) minmax(0, 1fr);
+  gap: var(--group-label-gap);
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel);
+}
+.journey-group:is(.g-prep, .g-analysis) {
+  background: color-mix(in srgb, var(--pale-blue) 24%, var(--panel));
+}
+.journey-group.is-active {
+  border-color: var(--muted-teal);
+  background: var(--ice-blue);
+}
+.journey-group + .journey-group::before,
+.journey-group + .journey-group::after {
+  position: absolute;
+  inset-block-start: var(--connector-center);
+  content: "";
+  pointer-events: none;
+}
+.journey-group + .journey-group::before {
+  inset-inline-end: calc(100% + 3px);
+  width: calc(var(--journey-gap) - 5px);
+  height: 1px;
+  background: var(--connector-ink);
+}
+.journey-group + .journey-group::after,
+.journey-node + .journey-node::before {
+  width: 5px;
+  height: 5px;
+  border: solid var(--connector-ink);
+  border-width: 1px 1px 0 0;
+  transform: translateY(-50%) rotate(45deg);
+}
+.journey-group + .journey-group::after { inset-inline-end: calc(100% + 3px); }
+.journey-group-label {
+  align-self: center;
+  padding-inline: 2px;
+  color: var(--muted);
+  font-size: .66rem;
+  font-weight: 760;
+  letter-spacing: .052em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.journey-group.is-active .journey-group-label { color: var(--deep-teal); }
+.journey-nodes {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--agent-gap);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.journey-node { position: relative; display: flex; min-width: 0; }
+.journey-node + .journey-node::before {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: calc(100% + var(--agent-gap) / 2 - 2px);
+  content: "";
+  pointer-events: none;
+}
+.journey-step {
+  position: relative;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: var(--step-height);
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+  text-decoration: none;
+}
+.journey-step strong {
+  max-width: 12ch;
+  font-size: clamp(.72rem, .95vw, .89rem);
+  font-weight: 720;
+  line-height: 1.22;
+  text-wrap: balance;
+}
+.journey-intro .journey-step strong { font-size: clamp(.8rem, 1.05vw, .95rem); }
+.journey-node.is-io .journey-step { background: var(--ice-blue); }
+.journey-intro .g-handoff .journey-step { background: var(--pale-blue); }
+.journey-intro .g-output .journey-step { background: var(--deep-teal); color: var(--panel); border-color: var(--deep-teal); }
+.journey-node.is-local .journey-step {
+  border-style: dashed;
+  border-color: var(--muted-teal);
+  background: color-mix(in srgb, var(--highlight-soft) 58%, var(--panel));
+}
+.journey-node.is-next .journey-step[aria-disabled] { color: var(--muted); }
+.journey-node.is-done .journey-step::after {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-end: 5px;
+  content: "✓";
+  color: var(--highlight-ink);
+  font-size: .68rem;
+  line-height: 1;
+}
+.journey-node.is-current .journey-step,
+.journey-intro .journey-node .journey-step[aria-pressed="true"] {
+  border-color: var(--deep-teal);
+  background: var(--deep-teal);
+  color: var(--panel);
+  box-shadow: none;
+}
+a.journey-step, button.journey-step { cursor: pointer; }
+a.journey-step:hover, button.journey-step:hover { border-color: var(--muted-teal); }
+a.journey-step:focus-visible, button.journey-step:focus-visible {
+  outline: 2px solid var(--deep-teal);
+  outline-offset: 1px;
+}
+.journey-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 15px;
+  margin: 0;
+  padding: 0 2px;
+  color: var(--muted);
+  font-size: .79rem;
+}
+.journey-caption-now { color: var(--deep-teal); font-weight: 700; }
+.journey-io { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 5px; }
+.journey-io span {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--ice-blue);
+  color: var(--muted);
+  font-size: .63rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+.journey-io i { font-style: normal; color: var(--muted); }
+
+@media (max-height: 760px) {
+  .journey-replay { --step-height: 42px; --group-label-gap: 5px; gap: 5px; }
+  .journey-replay .journey-group { padding-block: 5px; }
+}
+@media (max-width: 760px) {
+  .journey-intro { --step-height: 47px; padding: 12px; }
+  .journey-intro .journey-groups { grid-template-columns: minmax(0, 1fr); min-width: 0; gap: var(--journey-gap); }
+  .journey-intro .journey-group + .journey-group::before {
+    inset-block-start: calc(-1 * var(--journey-gap));
+    inset-inline-start: 50%;
+    width: 1px;
+    height: calc(var(--journey-gap) - 4px);
+  }
+  .journey-intro .journey-group + .journey-group::after {
+    inset-block-start: -6px;
+    inset-inline-start: 50%;
+    transform: translateX(-50%) rotate(135deg);
+  }
+  .journey-caption { font-size: .73rem; }
+}
+
+/* Outputs guide: what the recorded study actually produced. */
+.guide-example { margin-top: 4px; padding: 14px 16px; border: 1px solid var(--gray-200); border-radius: 12px; background: var(--gray-50); }
+.guide-example h3 { margin: 0 0 10px; font-size: .95rem; color: var(--deep-teal); }
+.guide-example dl { margin: 0; display: grid; gap: 10px; }
+.guide-example dl > div { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 12px; }
+.guide-example dt { font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-600); padding-top: 2px; }
+.guide-example dd { margin: 0; font-size: .88rem; }
+.guide-example code { font-size: .84rem; }
+.guide-example ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.guide-example li { padding: 4px 9px; border: 1px solid var(--gray-200); border-radius: 7px; background: #fff; font-size: .82rem; }
+.guide-example li span { margin-left: 4px; color: var(--gray-400); font-size: .66rem; font-weight: 800; }
+@media (max-width: 760px) { .guide-example dl > div { grid-template-columns: 1fr; gap: 4px; } }
+
+/* Intro agent guide: open by default, advances on a timer, any step jumps to its agent. */
+.intro-workflow-detail { overflow: hidden; }
+.intro-slide-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.intro-slide-dots { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.intro-slide-dots button {
+  padding: 5px 11px; border: 1px solid var(--gray-200); border-radius: 999px; background: #fff;
+  color: var(--gray-600); font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer;
+}
+.intro-slide-dots button:hover { border-color: var(--muted-teal); color: var(--deep-teal); }
+.intro-slide-dots button[aria-pressed="true"] { background: var(--deep-teal); border-color: var(--deep-teal); color: #fff; }
+.intro-slide-count { color: var(--gray-600); font-size: .78rem; font-variant-numeric: tabular-nums; }
+.intro-slide-toggle {
+  padding: 4px 11px; border: 1px solid var(--gray-200); border-radius: 8px; background: #fff;
+  color: var(--deep-teal); font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer;
+}
+.intro-slide-progress { height: 3px; border-radius: 3px; background: var(--gray-150); overflow: hidden; margin-bottom: 18px; }
+.intro-progress-fill {
+  display: block; height: 100%; background: var(--highlight); transform-origin: left center;
+  animation-name: intro-progress; animation-timing-function: linear; animation-fill-mode: forwards;
+}
+.intro-workflow-detail.is-paused .intro-progress-fill { animation-play-state: paused; }
+@keyframes intro-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.intro-slide-view { position: relative; }
+@media (prefers-reduced-motion: no-preference) {
+  .intro-slide.entering { animation: intro-slide-in .45s cubic-bezier(.2, .7, .2, 1); }
+  .intro-slide.entering.from-left { animation-name: intro-slide-in-left; }
+}
+@keyframes intro-slide-in { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+@keyframes intro-slide-in-left { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) {
+  .intro-slide-dots button { font-size: .68rem; padding: 4px 8px; }
+}
+
+/* Analysis planning input: the selected cohort rides along with the study design. */
+.plan-input-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 240px; padding: 4px 9px; border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-50); font-size: .78rem; font-weight: 700; color: var(--deep-teal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plan-input-chip span { color: var(--gray-600); font-size: .62rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+
+/* NOW tag on the current replay step. */
+.journey-step:has(.journey-now) { align-content: center; gap: 3px; }
+.journey-now {
+  padding: 0 5px; border-radius: 4px; background: var(--highlight); color: var(--deep-teal);
+  font-size: .58rem; font-weight: 800; letter-spacing: .05em; line-height: 1.5; text-transform: uppercase;
+}
+
+/* Run & repair back to a plain dashed block; Results on the overview back to an ordinary output block. */
+.journey-node.is-local:not(.is-current) .journey-step:not([aria-pressed="true"]) { background: var(--panel); }
+.journey-intro :is(.g-output, .g-handoff) .journey-step:not([aria-pressed="true"]) { background: var(--ice-blue); color: var(--ink); border-color: var(--line); }
+
+/* Overview: Agent workflow sits on the page (no panel), centred title, hairline above. */
+.journey-intro {
+  margin-top: 20px; padding: 24px 0 0;
+  border: 0; border-top: 1px solid color-mix(in srgb, var(--deep-teal) 16%, transparent);
+  border-radius: 0; background: none; box-shadow: none;
+}
+.journey-intro .journey-head { justify-content: center; }
+
+/* Keep the workflow bar the same height on every step:
+   NOW sits on the block's top edge instead of inside it, and the caption stays on one line. */
+.journey-step:has(.journey-now) { gap: 0; }
+.journey-now {
+  position: absolute; inset-block-start: -7px; inset-inline-start: 50%; transform: translateX(-50%);
+  z-index: 1; box-shadow: 0 0 0 2px var(--panel);
+}
+.journey-caption {
+  flex-wrap: nowrap; min-height: 1.5em; line-height: 1.5;
+  white-space: nowrap; overflow: hidden;
+}
+.journey-caption-now { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.journey-io { flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; overflow: hidden; }

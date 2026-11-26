@@ -10,7 +10,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   if(nhis)Object.assign(D.outputs,nhis.outputs);
   const state={studyId:'pravastatin',question:recordedQuestion,draft:recordedQuestion,started:false,checkpoint:false,exampleId:null,generated:false,generating:false,genToken:0,reached:0,analysisDataset:''};
   const paths=['question','strategy','cohort','dataset','analysis','results'];
-  const names=['Study examples','Strategy Agent','Cohort Construction','Cohort Dataset','Analysis','Results'];
+  const names=['Study examples','Strategy Agent','Preprocessing','Cohort Dataset','Analysis','Results'];
   const norm=s=>s.toLowerCase().replace(/\bearly\b/g,'').replace(/[^a-z0-9]+/g,' ').trim();
   const activeStudy=()=>studyExamples.find(ex=>ex.id===state.studyId)||studyExamples[0];
   const isNhis=()=>activeStudy().id==='ccb-fracture';
@@ -35,69 +35,75 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   function questionDialog(){showDialog('The question that started this study',`<p class="question-quote">${esc(state.question)}</p><p class="small-note">This is the only user-provided input. The database and model assignments are preconfigured for this recorded study.</p>`,'YOUR INPUT');}
 
   const workflowStages=[
-    {id:'question',title:'Research Question',icon:'<circle cx="12" cy="12" r="9"/><path d="M9.3 9a2.8 2.8 0 0 1 5.4 1c0 1.8-2.7 2.1-2.7 4m0 3h.01"/>'},
-    {id:'cohort',title:'Cohort Construction',icon:'<rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 5V3h6v2M9 11h6m-6 4h6"/>'},
-    {id:'analysis',title:'Analysis',icon:'<circle cx="5" cy="6" r="1.4"/><circle cx="5" cy="12" r="1.4"/><circle cx="5" cy="18" r="1.4"/><path d="M10 6h10m-10 6h10m-10 6h10"/>'},
-    {id:'execution',title:'Execution',icon:'<path d="m8 6-5 6 5 6m8-12 5 6-5 6M14 4l-4 16"/>'},
-    {id:'results',title:'Results',icon:'<path d="M3 21h18M5 17v-5h3v5m3 0V8h3v9m3 0V4h3v13"/>'}
+    {id:'strategy',title:'Strategy Agent'},
+    {id:'planning',title:'Planning Agent'},
+    {id:'coding',title:'Coding Agent'},
+    {id:'execution',title:'Execution & Repair Agent'},
+    {id:'outputs',title:'Outputs: cohort dataset & results'}
   ];
   const systemFeatures=[
-    {id:'handoffs',title:'Agent handoffs',hint:'Question to scripts',description:'Enter a research question, and the agents carry it through the cohort study. Strategy turns it into a study design, Planning breaks the design into cohort and analysis tasks, and Coding writes the scripts that run them. Each handoff leaves an artifact you can inspect.'},
-    {id:'local',title:'Information levels',hint:'L0–L3 input checks',description:'Every task input and output is classified from L0 (data-independent knowledge) to L3 (patient-level records) before it reaches a model. Inputs that may not leave the institution go only to local models, so the study can be automated inside your own environment. Execution feedback is checked too, because an error message can carry patient-level values.'},
-    {id:'review',title:'Hybrid framework',hint:'Frontier + local models',description:'Running every task locally keeps data in place but limits model capability. The Hybrid framework assigns each task by what it needs: frontier models take tasks whose inputs may be disclosed, and local models handle execution and repair. This balance reached the highest end-to-end success, 8 of 10 runs versus 6 of 10 fully local.'}
+    {id:'handoffs',title:'Agent handoffs',hint:'Question to results',description:'You enter one research question. Four AI agents then carry the study forward, much like a research team: the Strategy Agent writes the protocol, the Planning Agent lists the steps, the Coding Agent writes the programs, and the Execution & Repair Agent runs them. Every handoff leaves a document or file you can open and check.'},
+    {id:'local',title:'Patient data protection',hint:'Who sees what',description:'Before any information is given to an AI model, it is graded by sensitivity: general knowledge (Level 0), the database structure (Level 1), summary numbers (Level 2), and individual patient records (Level 3). Anything that could reveal patient data goes only to an AI model running inside the institution, so the study can be automated without sending records outside.'},
+    {id:'review',title:'Hybrid framework',hint:'Large + local AI models',description:'Large commercial AI models write better plans and code, but cannot be given patient data. Small AI models installed locally can work with the data, but are less capable. The Hybrid framework uses each where it fits: large models for the protocol, plans, and code; local models for running and fixing the code. In our tests it completed the whole study in 8 of 10 runs, compared with 6 of 10 when everything ran locally.'}
   ];
   const workflowGuides={
-    question:{
-      facts:[['Information','L0 only: the research question and clinical knowledge, no database details'],['Model','Frontier model in the Hybrid setup']],
-      description:'Turn a clinical question into a specification that can guide a cohort study.',
-      roles:[['Strategy Agent','Defines the study population, eligibility criteria, exposure, comparison group, outcome, and follow-up from the research question. This design becomes the reference that later plans and scripts are checked against.']],
-      input:'A research question from the investigator',output:'A study design passed to the Planning Agent'
-    },
-    cohort:{
-      facts:[['Information','L1 schema: table and column names and types; L2 summaries only if needed'],['Model','Frontier models for planning and coding in the Hybrid setup, with no patient data'],['Check','In the fully local setup, a checkpoint reviews the plan before coding']],
-      description:'Build the dataset that represents the study population and its key variables.',
+    strategy:{
+      facts:null,
+      description:'Reads the research question and writes a study protocol, as an epidemiologist would before touching any data.',
       roles:[
-        ['Planning Agent','Breaks eligibility, exposure classification, outcome definition, and baseline measurements into ordered tasks with named inputs and outputs, keeping the time windows from the study design.'],
-        ['Coding Agent','Writes scripts from the plan and the database schema, without seeing patient records. The scripts produce intermediate tables and the final cohort, and the replay exposes both for inspection.']
+        ['What it writes','The study population and eligibility criteria, the drug exposure and the comparison group, the outcome, the follow-up period, and the planned statistical analysis.'],
+        ['Why it matters','The protocol is the reference for every later step. Each plan and program is checked against it, so the study answers the question that was asked.']
       ],
-      input:'The study design and database schema',output:'The constructed cohort and its schema for analysis',related:'execution'
+      input:'Your research question',output:'A study protocol'
     },
-    analysis:{
-      facts:[['Information','L0 statistical methods plus the L1 cohort variable structure; L2 only if needed'],['Model','Frontier models for planning and coding in the Hybrid setup'],['Check','In the fully local setup, a checkpoint reviews the plan before coding']],
-      description:'Specify and implement the comparisons needed to answer the research question.',
+    planning:{
+      facts:[['Quality check','A checkpoint can compare each plan with the protocol and send it back if a criterion is missing or changed']],
+      description:'Turns the protocol into a numbered list of concrete steps, like a methods section written before the work begins.',
       roles:[
-        ['Planning Agent','Uses the study design and the cohort variable structure to set the order for data checks, cohort comparisons, model fitting, and sensitivity analyses when the study calls for them.'],
-        ['Coding Agent','Writes scripts for those tasks and connects them to saved estimates and diagnostics. Review the plan and the recorded outputs to see where the actual analysis differs.']
+        ['Preprocessing: building the cohort','Lists each step needed to assemble the study population: find eligible patients, apply the exclusion criteria, define drug exposure within the time window, define the outcome, and collect baseline characteristics.'],
+        ['Analysis','Lists the analysis steps: compare baseline characteristics, balance the groups (for example with propensity score matching), fit survival models, and run sensitivity analyses.']
       ],
-      input:'The study design and constructed cohort',output:'Estimates, diagnostics, and data for tables and figures',related:'execution'
+      input:'The study protocol and the database structure',output:'Two step-by-step plans: one for preprocessing, one for the analysis'
+    },
+    coding:{
+      facts:null,
+      description:'Writes a short computer program for each planned step.',
+      roles:[
+        ['Preprocessing: building the cohort','Each program pulls the records it needs from the hospital database and saves a table. The last one produces the study cohort, one row per patient.'],
+        ['Analysis','Each program carries out one part of the statistical analysis and saves the estimates, tables, and figures.']
+      ],
+      input:'A step-by-step plan',output:'One program for each planned step'
     },
     execution:{
-      facts:[['Information','L0–L3: in the study, an error message contained patient admission timestamps'],['Model','Local model for repair; every query runs in the approved local environment']],
-      description:'Run the scripts and inspect the outputs in the local research environment.',
+      facts:null,
+      description:'Runs the programs on the study data, and fixes them when they fail.',
       roles:[
-        ['Local execution','Runs scripts during both cohort construction and analysis. The demo replays saved code and outputs.'],
-        ['Repair Agent','Uses the code, error messages, and execution logs to revise a script and rerun it until it succeeds or reaches the revision limit. Because this feedback can contain patient-level values, Repair runs on a local model.'],
-        ['Optional checkpoint','Compares each plan with the study design before code is written. It scores every requirement for importance and how well the plan meets it, then sends omitted or altered conditions back for revision. It matters most when smaller local models do all the work.']
+        ['Running the programs','Each program runs on the study database, in order, both for building the cohort and for the analysis.'],
+        ['Fixing errors','When a program fails, the Repair Agent reads the error message, corrects the code, and runs it again, up to a set number of attempts.'],
+        ['Optional checkpoint','Before any code is written, a reviewer compares each plan with the protocol and flags criteria that were dropped or changed.']
       ],
-      input:'Scripts, local data, and runtime feedback when available',output:'Run outputs that feed later tasks and the results page',related:'cohort'
+      input:'The programs and the study database',output:'The study cohort and the analysis results'
     },
-    results:{
-      facts:[['Information','L2 aggregates. They are still reviewed before sharing, since small groups can point to individuals']],
-      description:'Organize the recorded analysis into tables and figures that address the original question.',
+    outputs:{
+      facts:[['Study cohort','Patient-level records. They stay inside the institution.'],['Results','Summary numbers and figures only, reviewed before sharing because very small groups could identify patients.']],
+      description:'What you get at the end: the study cohort, and the results that answer the research question.',
       roles:[
-        ['Analysis outputs','Browse the available estimates, balance checks, and survival figures. The figures and tables come from the saved study outputs.'],
-        ['Source notes','Check which step or analysis produced an artifact. The NHIS results include outputs from different analyses, so each is identified separately.']
+        ['Study cohort','One row per eligible patient, with the exposure group, the outcome, follow-up time, and baseline characteristics. The AI that plans the analysis sees only the list of variables, never the rows.'],
+        ['Step-by-step tables','Each preprocessing step saves a table, so you can see how many patients remain after each criterion, like a patient flow diagram.'],
+        ['Results','Effect estimates such as hazard ratios with 95% confidence intervals, balance checks between the groups, and survival curves. Each file shows which step produced it.']
       ],
-      input:'Saved estimates, diagnostics, and figures',output:'Shareable aggregate results with source information'
+      input:'Everything the programs produced',output:'A study cohort kept locally, and shareable summary results'
     }
   };
+  const guideAlias={question:'strategy',cohort:'planning',analysis:'planning',results:'outputs'};
+  const guideId=id=>workflowGuides[id]?id:guideAlias[id]||'strategy';
   const workflowMaps={
     cohort:{
       input:'Study design and database schema',
       planTask:'Turn eligibility, exposure, and outcome rules into ordered tasks.',
-      plan:'Cohort construction plan',
+      plan:'Preprocessing plan',
       codeTask:'Write scripts that query and assemble the cohort.',
-      code:'Cohort construction scripts',
+      code:'Preprocessing scripts',
       output:'Cohort Dataset',
       execution:'Scripts run locally to build the dataset. The Repair Agent handles runtime errors as needed.'
     },
@@ -112,7 +118,10 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
     }
   };
   let featureId='handoffs';
-  let introWorkflow='';
+  let introWorkflow='strategy';
+  let introPaused=false;
+  const introOrder=['strategy','planning','coding','execution','outputs'];
+  const INTRO_SLIDE_SECONDS=9;
   const phaseFor=section=>({strategy:'question',dataset:'cohort'}[section]||section);
   const guidePath=id=>'/guide/'+id;
 
@@ -190,6 +199,73 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
       </ol>
     </nav>`;
   }
+  /* ---------- Agent journey: the whole flow on one bar ---------- */
+  const journeyGroups=[
+    {id:'input',label:'Input'},
+    {id:'design',label:'Study design'},
+    {id:'prep',label:'Preprocessing phase'},
+    {id:'handoff',label:'Output'},
+    {id:'analysis',label:'Analysis phase'},
+    {id:'output',label:'Output'}
+  ];
+  const journeyNodes=[
+    {id:'question',group:'input',kind:'io',title:'Research question',sub:'Your input',guide:'strategy',href:'',task:'The only input from you',input:'Your idea',output:'Research question'},
+    {id:'strategy',group:'design',kind:'agent',title:'Strategy Agent',sub:'Study design',guide:'strategy',href:'strategy',task:'Writes the study protocol from your question',input:'Research question',output:'Study protocol'},
+    {id:'pPlan',group:'prep',kind:'agent',title:'Planning Agent',sub:'Preprocessing plan',guide:'planning',href:'cohort',task:'Lists the steps to build the study cohort',input:'Protocol + database structure',output:'Preprocessing plan'},
+    {id:'pCode',group:'prep',kind:'agent',title:'Coding Agent',sub:'One script per task',guide:'coding',href:'cohort/coding',task:'Writes one program per step',input:'Preprocessing plan',output:'Study cohort'},
+    {id:'pRun',group:'prep',kind:'local',title:'Run & repair',sub:'Runs and fixes',guide:'execution',href:'cohort/coding',task:'Runs the programs and fixes errors',input:'Programs + study data',output:'Step-by-step tables'},
+    {id:'dataset',group:'handoff',kind:'io',title:'Cohort dataset',sub:'Analysis input',guide:'outputs',href:'dataset',task:'The study cohort, ready for analysis',input:'Preprocessing results',output:'Analysis input'},
+    {id:'aPlan',group:'analysis',kind:'agent',title:'Planning Agent',sub:'Analysis plan',guide:'planning',href:'analysis/planning',task:'Lists the analysis steps: comparisons, models, and checks',input:'Protocol + cohort variables',output:'Analysis plan'},
+    {id:'aCode',group:'analysis',kind:'agent',title:'Coding Agent',sub:'Analysis scripts',guide:'coding',href:'analysis/coding',task:'Writes one analysis program per step',input:'Analysis plan',output:'Estimates and figures'},
+    {id:'aRun',group:'analysis',kind:'local',title:'Run & repair',sub:'Runs and fixes',guide:'execution',href:'analysis/coding',task:'Runs the analysis and fixes errors',input:'Programs + study cohort',output:'Saved estimates'},
+    {id:'results',group:'output',kind:'io',title:'Results',sub:'Tables & figures',guide:'outputs',href:'results',task:'Tables and figures that answer your research question',input:'Saved estimates and figures',output:'Shareable summary results'}
+  ];
+  function journeyCurrent(section){
+    if(section==='strategy')return ['strategy'];
+    if(section==='cohort')return route?.detail==='coding'&&pipes().cohort.run.planReady?['pCode','pRun']:['pPlan'];
+    if(section==='dataset')return ['dataset'];
+    if(section==='analysis'){
+      if(!state.analysisDataset||!route?.detail)return ['dataset'];
+      return route.detail==='coding'&&pipes().analysis.run.planReady?['aCode','aRun']:['aPlan'];
+    }
+    if(section==='results')return ['results'];
+    return [];
+  }
+  function journey(section,mode){
+    const intro=mode==='intro',guide=mode==='guide',replay=mode==='replay';
+    const current=replay?journeyCurrent(section):guide?journeyNodes.filter(n=>n.guide===section).map(n=>n.id):[];
+    const at=replay?journeyNodes.findIndex(n=>current.includes(n.id)):-1;
+    const limit=replay?navigationLimit(section):0;
+    const choosing=replay&&section==='analysis'&&(!state.analysisDataset||!route?.detail);
+    const step=(n,i)=>{
+      const st=intro?'idle':current.includes(n.id)?'current':replay&&i<at?'done':'next';
+      const body=`${st==='current'&&replay?'<span class="journey-now">Now</span>':''}<strong>${esc(n.title)}</strong>`;
+      let el;
+      if(intro)el=n.id==='question'?`<button type="button" class="journey-step" data-intro-workflow="${n.guide}" data-intro-input aria-controls="introWorkflowDetail">${body}</button>`:`<button type="button" class="journey-step" data-intro-workflow="${n.guide}" aria-controls="introWorkflowDetail" aria-pressed="${introWorkflow===n.guide}">${body}</button>`;
+      else if(guide)el=st==='current'?`<span class="journey-step" aria-current="step">${body}</span>`:`<a class="journey-step" href="#${guidePath(n.guide)}">${body}</a>`;
+      else if(n.id==='question')el=`<button type="button" class="journey-step" data-current-question title="Show the research question">${body}</button>`;
+      else if(st==='current')el=`<span class="journey-step" aria-current="step">${body}</span>`;
+      else if((stepIndex[n.href.split('/')[0]]||99)<=limit)el=`<a class="journey-step" href="#${stagePath(n.href)}">${body}</a>`;
+      else el=`<span class="journey-step" aria-disabled="true">${body}</span>`;
+      return `<li class="journey-node is-${n.kind} is-${st}">${el}</li>`;
+    };
+    const groups=journeyGroups.map(g=>{
+      const items=journeyNodes.map((n,i)=>[n,i]).filter(([n])=>n.group===g.id);
+      const active=items.some(([n])=>current.includes(n.id));
+      const done=replay&&at>=0&&items.every(([,i])=>i<at);
+      return `<li class="journey-group g-${g.id}${active?' is-active':''}${done?' is-done':''}"><span class="journey-group-label">${g.label}</span><ol class="journey-nodes">${items.map(([n,i])=>step(n,i)).join('')}</ol></li>`;
+    }).join('');
+    const now=journeyNodes.find(n=>n.id===current[0]);
+    const caption=intro
+      ?''
+      :now&&replay?`<p class="journey-caption"><span class="journey-caption-now">${esc(choosing?'Choose the cohort dataset for analysis':now.task)}</span>${now.id==='dataset'?'':`<span class="journey-io"><span>Input</span>${esc(now.input)}<i aria-hidden="true">→</i><span>Output</span>${esc(now.output)}</span>`}</p>`:'';
+    const help='';
+    return `<nav class="journey journey-${mode}" aria-labelledby="agentWorkflowTitle">
+      <div class="journey-head"><h2 class="journey-title" id="agentWorkflowTitle">Agent workflow</h2>${help}</div>
+      <div class="journey-track"><ol class="journey-groups">${groups}</ol></div>
+      ${caption}
+    </nav>`;
+  }
   function featureDetails(){
     const feature=systemFeatures.find(item=>item.id===featureId);
     const figures={handoffs:'feature-handoffs',local:'feature-levels',review:'feature-hybrid'};
@@ -201,7 +277,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
         <div class="intro-hero-inner">
           <div class="intro-hero-copy">
             <h1>From research question <span>to cohort analysis</span></h1>
-            <p>See what each agent produces and passes to the next in a recorded cohort study.</p>
+            <p>Ask a clinical research question. AI agents design the study, build the patient cohort, and run the analysis.</p>
             <a class="button primary" href="#/question">Explore Study Examples</a>
           </div>
           <div class="intro-hero-visual" aria-hidden="true"><img class="hero-flow-img" src="assets/cohort-automation-tray.webp" width="1536" height="1024" alt="" fetchpriority="high"></div>
@@ -217,46 +293,86 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
           <div class="system-feature-detail" id="systemFeatureDetail" aria-live="polite">${featureDetails()}</div>
         </div>
       </section>
-      ${workflowStrip('','intro')}
-      <section class="panel workflow-guide intro-workflow-detail" id="introWorkflowDetail" tabindex="-1" ${introWorkflow?'':'hidden'}>${introWorkflow?guideSection(introWorkflow):''}</section>
+      ${journey('','intro')}
+      <section class="panel workflow-guide intro-workflow-detail${introPaused?' is-paused':''}" id="introWorkflowDetail" tabindex="-1" aria-roledescription="carousel" aria-label="Agent guide">
+        <div class="intro-slide-bar">
+          <div class="intro-slide-dots" role="group" aria-label="Choose an agent">${introOrder.map(id=>`<button type="button" data-intro-workflow="${id}" aria-controls="introWorkflowDetail" aria-pressed="${introWorkflow===id}"><span>${esc(workflowStages.find(s=>s.id===id).title.replace(/:.*$/,''))}</span></button>`).join('')}</div>
+          <span class="intro-slide-count" id="introSlideCount">${introOrder.indexOf(introWorkflow)+1} / ${introOrder.length}</span>
+          <button type="button" class="intro-slide-toggle" data-intro-pause aria-pressed="${introPaused}">${introPaused?'Play':'Pause'}</button>
+        </div>
+        <div class="intro-slide-progress" aria-hidden="true"><span class="intro-progress-fill" style="animation-duration:${INTRO_SLIDE_SECONDS}s"></span></div>
+        <div class="intro-slide-view" id="introSlideView" aria-live="polite"><div class="intro-slide">${guideSection(introWorkflow)}</div></div>
+      </section>
     </section>`;
   }
+  function recordedOutputs(){
+    const study=activeStudy(),cohort=recordedCohort(),files=(resultArtifacts()?.files||[]);
+    return `<section class="guide-example"><h3>In the recorded study · ${esc(study.title)}</h3><dl>
+      ${cohort?`<div><dt>Study cohort</dt><dd><code>${esc(cohort.name)}</code> · ${fmt(cohort.rows)} rows · ${fmt(cohort.columns)} columns · ${esc(cohort.source)}</dd></div>`:''}
+      ${files.length?`<div><dt>Results</dt><dd><ul>${files.map(f=>`<li>${esc(f.label||f.name)} <span>${esc((f.kind||'').toUpperCase())}</span></li>`).join('')}</ul></dd></div>`:''}
+    </dl></section>`;
+  }
   function guideContent(id){
-    const guide=workflowGuides[id];
+    id=guideId(id);const guide=workflowGuides[id];
     return `<div class="workflow-guide-content">
       <p class="workflow-guide-summary">${esc(guide.description)}</p>
       ${guide.facts?`<dl class="workflow-guide-facts">${guide.facts.map(([term,text])=>`<div><dt>${esc(term)}</dt><dd>${esc(text)}</dd></div>`).join('')}</dl>`:''}
       ${workflowMaps[id]?renderWorkflowMap(id,'',true):`
         <div class="workflow-guide-roles">${guide.roles.map(([role,description])=>`<article><h3>${esc(role)}</h3><p>${esc(description)}</p></article>`).join('')}</div>
         <dl class="workflow-guide-handoff"><div><dt>Input</dt><dd>${esc(guide.input)}</dd></div><div><dt>Output</dt><dd>${esc(guide.output)}</dd></div></dl>`}
-      ${guide.related?route.section==='intro'
-        ?`<button class="text-button" type="button" data-related-workflow="${guide.related}">${guide.related==='execution'?'How execution and repair work':'See cohort construction'}</button>`
-        :`<a class="text-button" href="#${guidePath(guide.related)}" data-close-dialog>${guide.related==='execution'?'How execution and repair work':'See cohort construction'}</a>`:''}
+      
     </div>`;
   }
   function guideSection(id){
-    const stage=workflowStages.find(s=>s.id===id);
+    const stage=workflowStages.find(s=>s.id===guideId(id));
     return `<header><h2>${stage.title}</h2></header>${guideContent(id)}`;
   }
-  function showIntroWorkflow(id){
+  function showIntroWorkflow(id,auto=false){
+    id=guideId(id);
+    const detail=$('introWorkflowDetail'),view=$('introSlideView');
+    if(!detail||!view)return;
+    const back=introOrder.indexOf(id)<introOrder.indexOf(introWorkflow);
     introWorkflow=id;
-    document.querySelectorAll('[data-intro-workflow]').forEach(button=>
+    document.querySelectorAll('[data-intro-workflow]:not([data-intro-input])').forEach(button=>
       button.setAttribute('aria-pressed',String(button.dataset.introWorkflow===id)));
-    const detail=$('introWorkflowDetail');
-    detail.innerHTML=guideSection(id);
-    detail.hidden=false;
-    detail.focus({preventScroll:true});
-    detail.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+    view.setAttribute('aria-live',auto?'off':'polite');
+    view.innerHTML=`<div class="intro-slide entering${back?' from-left':''}">${guideSection(id)}</div>`;
+    $('introSlideCount').textContent=`${introOrder.indexOf(id)+1} / ${introOrder.length}`;
+    const bar=detail.querySelector('.intro-progress-fill');
+    bar.replaceWith(bar.cloneNode());
+    if(!auto){
+      const top=detail.getBoundingClientRect().top;
+      if(top>innerHeight*.6||top<0)detail.scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+    }
+  }
+  function bindIntroSlides(){
+    const detail=$('introWorkflowDetail');if(!detail)return;
+    const zones=[detail,document.querySelector('.journey-intro')].filter(Boolean);
+    let hover=0,focus=false;
+    const sync=()=>detail.classList.toggle('is-paused',introPaused||hover>0||focus);
+    zones.forEach(z=>{
+      z.addEventListener('pointerenter',e=>{if(e.pointerType!=='touch'){hover++;sync();}});
+      z.addEventListener('pointerleave',e=>{if(e.pointerType!=='touch'){hover=Math.max(0,hover-1);sync();}});
+      z.addEventListener('focusin',()=>{focus=true;sync();});
+      z.addEventListener('focusout',e=>{if(!zones.some(x=>x.contains(e.relatedTarget))){focus=false;sync();}});
+    });
+    detail.addEventListener('animationend',e=>{
+      if(!e.target.classList.contains('intro-progress-fill'))return;
+      showIntroWorkflow(introOrder[(introOrder.indexOf(introWorkflow)+1)%introOrder.length],true);
+    });
+    detail.querySelector('[data-intro-pause]').addEventListener('click',e=>{
+      introPaused=!introPaused;e.currentTarget.textContent=introPaused?'Play':'Pause';e.currentTarget.setAttribute('aria-pressed',String(introPaused));sync();
+    });
   }
   function renderGuide(id){
-    const stage=workflowStages.find(s=>s.id===id)||workflowStages[0];
+    const stage=workflowStages.find(s=>s.id===guideId(id))||workflowStages[0];
     return `<section class="screen workflow-guide-screen">
       <section class="panel workflow-guide scroll-region"><header><h1>${stage.title}</h1></header>${guideContent(stage.id)}</section>
       <footer class="automation-footer"><a class="button quiet" href="#/intro">Back to Overview</a><a class="button primary" href="#/question">Explore Study Examples</a></footer>
     </section>`;
   }
-  function renderProgress(section){return workflowStrip(section,'replay');}
-  function renderGuideNavigation(id){return workflowStrip(workflowGuides[id]?id:'question','guide');}
+  function renderProgress(section){return journey(section,'replay');}
+  function renderGuideNavigation(id){return journey(guideId(id),'guide');}
   let workflowPreviewListeners;
   let pinnedWorkflowPreview;
   function bindWorkflowPreviews(){
@@ -313,7 +429,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   }
   const taskFlows={
     question:[['in','io','Input','Research question'],['strategy','agent','Strategy Agent','Turns the question into a study design'],['out','io','Output','Study design']],
-    cohort:[['in','io','Input','Study design and schema'],['planning','agent','Planning Agent','Orders the cohort-building tasks'],['coding','agent','Coding Agent','Writes one script per task'],['exec','local','Execution & repair','Runs locally; a local model fixes errors'],['out','io','Output','Cohort dataset']],
+    cohort:[['in','io','Input','Study design and schema'],['planning','agent','Planning Agent','Orders the preprocessing tasks'],['coding','agent','Coding Agent','Writes one script per task'],['exec','local','Execution & repair','Runs locally; a local model fixes errors'],['out','io','Output','Cohort dataset']],
     analysis:[['in','io','Input','Study design + cohort'],['planning','agent','Planning Agent','Plans comparisons and models'],['coding','agent','Coding Agent','Writes the analysis scripts'],['exec','local','Execution & repair','Runs locally; a local model fixes errors'],['out','io','Output','Results']]
   };
   const flowFor={strategy:['question','strategy'],cohortPlan:['cohort','planning'],cohortCode:['cohort',['coding','exec']],dataset:['cohort','out'],choose:['analysis','in'],analysisPlan:['analysis','planning'],analysisCode:['analysis',['coding','exec']],results:['analysis','out']};
@@ -326,7 +442,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
       return `<li class="task-node is-${kind} is-${state}" ${state==='current'?'aria-current="step"':''}><span class="task-node-tag">${tag}</span><strong>${esc(kind==='io'?task:title)}</strong>${kind==='io'?'':`<small>${esc(task)}</small>`}</li>`;}).join('')}</ol>`;
   }
   function flowHeading(title,subtitleHtml,actions,key,extraClass=''){
-    return `<header class="screen-heading flow-heading ${extraClass}"><h1 class="sr-only">${esc(title)}</h1>${actions?`<div class="flow-meta"><p class="sr-only">${subtitleHtml}</p><div class="heading-actions">${actions}</div></div>`:`<p class="sr-only">${subtitleHtml}</p>`}${taskFlow(key)}</header>`;
+    return `<header class="screen-heading flow-heading ${extraClass}"><h1 class="sr-only">${esc(title)}</h1>${actions?`<div class="flow-meta"><p class="sr-only">${subtitleHtml}</p><div class="heading-actions">${actions}</div></div>`:`<p class="sr-only">${subtitleHtml}</p>`}</header>`;
   }
   function phaseHead(title,subtitle,actions='',flow=''){
     if(flow)return flowHeading(title,esc(subtitle||''),actions,flow);
@@ -364,10 +480,10 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   function runStrategyGeneration(){
     if(state.generating||state.generated)return;
     const token=++state.genToken;state.generating=true;go(stagePath('strategy'));
-    setTimeout(()=>{if(token!==state.genToken)return;state.generating=false;state.generated=true;if(route&&route.section==='strategy')go(stagePath('strategy'));},3000);
+    setTimeout(()=>{if(token!==state.genToken)return;state.generating=false;state.generated=true;if(route&&route.section==='strategy')go(stagePath('strategy'));},2000);
   }
 
-  /* ---------- Cohort construction, cohort dataset, analysis, result ---------- */
+  /* ---------- Preprocessing, cohort dataset, analysis, result ---------- */
   const studyDesignKey=()=>isNhis()?'nhisDesign':'strategy';
   const PIPE=(window.PIPELINE_DATA&&window.PIPELINE_DATA.cohort)||{steps:[],final:null};
   const APIPE=window.ANALYSIS_DATA||null;
@@ -402,7 +518,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   };
   const pipes=()=>isNhis()?nhisPipes:pravastatinPipes;
   const resultArtifacts=()=>isNhis()?nhis.results:window.SHARED_ANALYSIS;
-  const phaseLabel=P=>P.id==='cohort'?'Cohort Construction':'Analysis';
+  const phaseLabel=P=>P.id==='cohort'?'Preprocessing':'Analysis';
   const planPath=P=>P.id==='cohort'?'cohort':'analysis/planning';
   function recordedCohort(){
     const data=isNhis()?nhis.final:PIPE.final;
@@ -431,14 +547,10 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
     </section>`;
     return `<section class="screen automation-screen pipeline-screen">
       ${phaseHead('Planning Agent',phaseLabel(P)+' · '+activeStudy().title,planningActions(P),P.id==='cohort'?'cohortPlan':'analysisPlan')}
-      <div class="recorded-plan${analysis?'':' design-first'}">
-        ${analysis?'':outputPanel(studyDesignKey(),'Study design · from Strategy Agent').replace('>OUTPUT<','>INPUT · STUDY DESIGN<')}
-        ${analysis?`<aside class="panel recorded-plan-inputs scroll-region">
-          <span class="eyebrow">INPUT</span>
-          <h2>${analysis?'Study design and cohort':'Study design'}</h2>
-          <button class="text-button" type="button" data-input-design aria-haspopup="dialog">View Strategy Agent output</button>
-          <div class="recorded-plan-cohort"><span class="eyebrow">SELECTED COHORT</span><strong>${esc(state.analysisDataset)}</strong></div>
-        </aside>`:''}
+      <div class="recorded-plan design-first">
+        ${analysis
+          ?outputPanel(studyDesignKey(),'Study design · from Strategy Agent',`<span class="plan-input-chip" title="Selected cohort dataset"><span>Cohort</span>${esc(state.analysisDataset)}</span>`).replace('>OUTPUT<','>INPUT · STUDY DESIGN + SELECTED COHORT<')
+          :outputPanel(studyDesignKey(),'Study design · from Strategy Agent').replace('>OUTPUT<','>INPUT · STUDY DESIGN<')}
         ${ready?outputPanel(P.planKey,'Planning Agent output'):waiting}
       </div>
       ${phaseFooter(analysis?'analysis':'strategy',P.id+'/coding',ready?'':'Available when the plan is ready.')}
@@ -454,7 +566,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   function pipelineHeading(P){
     const complete=P.run.status==='done';
     const progress=complete?`Step ${pad(P.run.selected)} of ${P.steps.length}`:'Recorded replay';
-    const repair=P.recorded?'<button class="button quiet" data-nhis-details="repair">Execution &amp; repair</button>':'';
+    const repair='';
     return flowHeading('Coding Agent',`${phaseLabel(P)} · ${esc(activeStudy().title)} · <span id="pipelinePosition">${progress}</span>`,repair,P.id==='cohort'?'cohortCode':'analysisCode','pipeline-heading');
   }
   function stepPicker(P){
@@ -634,6 +746,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
 
   function renderAnalysisDataset(){
     const dataset=recordedCohort();
+    if(dataset&&!state.analysisDataset)state.analysisDataset=dataset.name;
     return `<section class="screen automation-screen">
       ${phaseHead('Choose a cohort dataset',activeStudy().title,'','choose')}
       <div class="analysis-inputs">
@@ -790,11 +903,13 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
     if(r.section!=='question'&&!state.started)return guard();markReached(r.section);return ({question:renderQuestion,strategy:renderStrategy,cohort:renderCohort,dataset:renderDataset,analysis:renderAnalysis,results:renderResults}[r.section]||renderQuestion)();}
   function bind(){
     document.querySelectorAll('[data-intro-workflow]').forEach(button=>button.addEventListener('click',()=>showIntroWorkflow(button.dataset.introWorkflow)));
+    bindIntroSlides();
     $('introWorkflowDetail')?.addEventListener('click',event=>{
       const button=event.target.closest('[data-related-workflow]');
       if(button)showIntroWorkflow(button.dataset.relatedWorkflow);
     });
     bindWorkflowPreviews();
+    document.querySelectorAll('.journey-track').forEach(track=>{const cur=track.querySelector('.journey-group.is-active');if(cur&&track.scrollWidth>track.clientWidth)track.scrollLeft=Math.max(0,cur.offsetLeft+cur.offsetWidth/2-track.clientWidth/2);});
     const featureButtons=document.querySelectorAll('[data-system-feature]');
     featureButtons.forEach(button=>button.addEventListener('click',()=>{
       featureId=button.dataset.systemFeature;
@@ -802,7 +917,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
       $('systemFeatureDetail').innerHTML=featureDetails();
     }));
     document.querySelectorAll('[data-stage-guide]').forEach(button=>button.addEventListener('click',()=>{
-      const stage=workflowStages.find(item=>item.id===button.dataset.stageGuide);
+      const stage=workflowStages.find(item=>item.id===guideId(button.dataset.stageGuide));
       showDialog(stage.title,guideContent(stage.id),'WORKFLOW GUIDE');
     }));
     document.querySelectorAll('[data-study-example]').forEach(card=>card.addEventListener('click',e=>{if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;e.preventDefault();const ex=studyExamples.find(x=>x.id===card.dataset.studyExample);startQuestion(ex.question);}));
