@@ -309,3 +309,52 @@ a.journey-step:focus-visible, button.journey-step:focus-visible {
 }
 .journey-caption-now { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .journey-io { flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; overflow: hidden; }
+
+/* Step pages: auto-play status in the workflow header; every block is a jump target. */
+.auto-ctl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.auto-ctl .journey-sim-tag {
+  display: inline-block; padding: 1px 7px; border: 1px solid var(--muted-teal); border-radius: 999px;
+  color: var(--deep-teal); font-size: .62rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+}
+.auto-status { min-width: 14ch; color: var(--gray-600); font-size: .78rem; font-variant-numeric: tabular-nums; text-align: right; }
+.auto-ctl .button.small { padding: 4px 10px; font-size: .74rem; }
+.journey-node.is-next button.journey-step { color: var(--muted); }
+button.journey-step:hover { border-color: var(--muted-teal); }
+@media (max-width: 760px) { .auto-status { display: none; } }
+
+/* Study list: simulated-demo note under the heading. */
+.gallery-sim-note { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; color: var(--gray-600); font-size: .9rem; }
+.gallery-sim-note .journey-sim-tag {
+  display: inline-block; padding: 1px 8px; border: 1px solid var(--muted-teal); border-radius: 999px;
+  color: var(--deep-teal); font-size: .64rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+}
+
+/* Handoff: the output travels along the bar to the next agent while the page slides on. */
+.handoff-packet {
+  position: absolute; z-index: 5; pointer-events: none;
+  padding: 4px 10px; border-radius: 999px; background: var(--highlight); color: var(--deep-teal);
+  font-size: .72rem; font-weight: 800; white-space: nowrap;
+  opacity: 0; transform: translate(0, 0);
+}
+.handoff-packet.go { opacity: 1; transition: transform .8s cubic-bezier(.45, 0, .2, 1), opacity .15s; }
+.journey-step.handoff-target { border-color: var(--highlight); }
+@media (prefers-reduced-motion: no-preference) {
+  #main .screen.handoff-out { animation: handoff-out .55s .3s ease-in forwards; }
+  #main .screen.handoff-in { animation: handoff-in .5s ease-out; }
+  .panel.handoff-receive { animation: handoff-receive 1.6s ease-out; }
+  .journey-step.handoff-arrive { animation: handoff-arrive 1s ease-out; }
+}
+@keyframes handoff-out { to { opacity: 0; transform: translateX(-48px); } }
+@keyframes handoff-in { from { opacity: 0; transform: translateX(48px); } to { opacity: 1; transform: none; } }
+@keyframes handoff-receive {
+  0%, 35% { border-color: var(--highlight); box-shadow: 0 0 0 3px color-mix(in srgb, var(--highlight) 55%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes handoff-arrive {
+  0% { outline: 3px solid var(--highlight); outline-offset: 2px; }
+  100% { outline: 3px solid transparent; outline-offset: 6px; }
+}
+
+/* No flashing when a step page re-renders with its finished output. */
+#main .automation-screen, #main .results-screen { animation: none; }
+.journey-group, .journey-step { transition: none; }
