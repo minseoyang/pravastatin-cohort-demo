@@ -4,13 +4,13 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   const recordedQuestion='Is pravastatin use associated with short-term mortality in ICU patients with sepsis?';
   const nhis=window.NHIS_DEMO;
   const studyExamples=[
-    {id:'pravastatin',area:'Drug exposure · Critical care',title:'Pravastatin in ICU sepsis',question:recordedQuestion,image:'assets/study-pravastatin.png',alt:'Unbranded medication blister pack with an ICU room softly blurred behind',connected:true,dataset:'MIMIC-IV',version:'3.1'},
-    ...(nhis?[{id:'ccb-fracture',title:'Antihypertensives and Fracture Risk',question:'Among patients with hypertension, use of calcium channel blockers (CCBs) is associated with a higher risk of incident fracture compared with use of diuretics (DUs).',displayQuestion:'Do calcium channel blocker initiators have a higher risk of fracture than diuretic initiators?',description:'A claims-based study of adults with hypertension in Korea.',image:'assets/study-ccb-fracture.jpg',alt:'Medication blister pack beside a blurred wrist radiograph',connected:true,dataset:'NHIS Sample Cohort',version:'1.0'}]:[])
+    {id:'pravastatin',area:'Drug exposure · Critical care',title:'Pravastatin in ICU sepsis',question:recordedQuestion,image:'assets/study-pravastatin.svg',alt:'Illustration of an ICU monitor, a survival curve, and a medication blister pack',connected:true,dataset:'MIMIC-IV',version:'3.1'},
+    ...(nhis?[{id:'ccb-fracture',title:'Antihypertensives and Fracture Risk',question:'Among patients with hypertension, use of calcium channel blockers (CCBs) is associated with a higher risk of incident fracture compared with use of diuretics (DUs).',displayQuestion:'Do calcium channel blocker initiators have a higher risk of fracture than diuretic initiators?',description:'A claims-based study of adults with hypertension in Korea.',image:'assets/study-ccb-fracture.svg',alt:'Illustration of a wrist radiograph with a fracture, a claims record, and two medication groups',connected:true,dataset:'NHIS Sample Cohort',version:'1.0'}]:[])
   ];
   if(nhis)Object.assign(D.outputs,nhis.outputs);
-  const state={studyId:'pravastatin',question:recordedQuestion,draft:recordedQuestion,started:false,checkpoint:false,exampleId:null,generated:false,generating:false,genToken:0,reached:0};
+  const state={studyId:'pravastatin',question:recordedQuestion,draft:recordedQuestion,started:false,checkpoint:false,exampleId:null,generated:false,generating:false,genToken:0,reached:0,analysisDataset:''};
   const paths=['question','strategy','cohort','dataset','analysis','results'];
-  const names=['Question define','Question define','Cohort construction','Cohort dataset','Analysis','Results'];
+  const names=['Study examples','Strategy Agent','Cohort Construction','Cohort Dataset','Analysis','Results'];
   const norm=s=>s.toLowerCase().replace(/\bearly\b/g,'').replace(/[^a-z0-9]+/g,' ').trim();
   const activeStudy=()=>studyExamples.find(ex=>ex.id===state.studyId)||studyExamples[0];
   const isNhis=()=>activeStudy().id==='ccb-fracture';
@@ -33,19 +33,314 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   }
   function questionError(message){if($('questionError')){$('questionError').textContent=message;$('questionError').hidden=false;}else toast(message);}
   function questionDialog(){showDialog('The question that started this study',`<p class="question-quote">${esc(state.question)}</p><p class="small-note">This is the only user-provided input. The database and model assignments are preconfigured for this recorded study.</p>`,'YOUR INPUT');}
-  const stepOf=[1,1,2,3,4,5],eyebrows=['QUESTION DEFINE','QUESTION DEFINE · STRATEGY AGENT','COHORT CONSTRUCTION · PLANNING & CODING AGENTS','COHORT DATASET','ANALYSIS · PLANNING & CODING AGENTS','RESULT ANALYSIS'];
-  function phaseHead(index,title,subtitle,actions=''){
-    return `<header class="screen-heading"><div><span class="eyebrow">${stepOf[index]} OF 5 · ${eyebrows[index]}</span><h1>${esc(title)}</h1>${subtitle?`<p>${esc(subtitle)}</p>`:''}</div><div class="heading-actions">${actions}</div></header>`;
+
+  const workflowStages=[
+    {id:'question',title:'Research Question',icon:'<circle cx="12" cy="12" r="9"/><path d="M9.3 9a2.8 2.8 0 0 1 5.4 1c0 1.8-2.7 2.1-2.7 4m0 3h.01"/>'},
+    {id:'cohort',title:'Cohort Construction',icon:'<rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 5V3h6v2M9 11h6m-6 4h6"/>'},
+    {id:'analysis',title:'Analysis',icon:'<circle cx="5" cy="6" r="1.4"/><circle cx="5" cy="12" r="1.4"/><circle cx="5" cy="18" r="1.4"/><path d="M10 6h10m-10 6h10m-10 6h10"/>'},
+    {id:'execution',title:'Execution',icon:'<path d="m8 6-5 6 5 6m8-12 5 6-5 6M14 4l-4 16"/>'},
+    {id:'results',title:'Results',icon:'<path d="M3 21h18M5 17v-5h3v5m3 0V8h3v9m3 0V4h3v13"/>'}
+  ];
+  const systemFeatures=[
+    {id:'handoffs',title:'Agent handoffs',hint:'Question to scripts',description:'Enter a research question, and the agents carry it through the cohort study. Strategy turns it into a study design, Planning breaks the design into cohort and analysis tasks, and Coding writes the scripts that run them. Each handoff leaves an artifact you can inspect.'},
+    {id:'local',title:'Information levels',hint:'L0–L3 input checks',description:'Every task input and output is classified from L0 (data-independent knowledge) to L3 (patient-level records) before it reaches a model. Inputs that may not leave the institution go only to local models, so the study can be automated inside your own environment. Execution feedback is checked too, because an error message can carry patient-level values.'},
+    {id:'review',title:'Hybrid framework',hint:'Frontier + local models',description:'Running every task locally keeps data in place but limits model capability. The Hybrid framework assigns each task by what it needs: frontier models take tasks whose inputs may be disclosed, and local models handle execution and repair. This balance reached the highest end-to-end success, 8 of 10 runs versus 6 of 10 fully local.'}
+  ];
+  const workflowGuides={
+    question:{
+      facts:[['Information','L0 only: the research question and clinical knowledge, no database details'],['Model','Frontier model in the Hybrid setup']],
+      description:'Turn a clinical question into a specification that can guide a cohort study.',
+      roles:[['Strategy Agent','Defines the study population, eligibility criteria, exposure, comparison group, outcome, and follow-up from the research question. This design becomes the reference that later plans and scripts are checked against.']],
+      input:'A research question from the investigator',output:'A study design passed to the Planning Agent'
+    },
+    cohort:{
+      facts:[['Information','L1 schema: table and column names and types; L2 summaries only if needed'],['Model','Frontier models for planning and coding in the Hybrid setup, with no patient data'],['Check','In the fully local setup, a checkpoint reviews the plan before coding']],
+      description:'Build the dataset that represents the study population and its key variables.',
+      roles:[
+        ['Planning Agent','Breaks eligibility, exposure classification, outcome definition, and baseline measurements into ordered tasks with named inputs and outputs, keeping the time windows from the study design.'],
+        ['Coding Agent','Writes scripts from the plan and the database schema, without seeing patient records. The scripts produce intermediate tables and the final cohort, and the replay exposes both for inspection.']
+      ],
+      input:'The study design and database schema',output:'The constructed cohort and its schema for analysis',related:'execution'
+    },
+    analysis:{
+      facts:[['Information','L0 statistical methods plus the L1 cohort variable structure; L2 only if needed'],['Model','Frontier models for planning and coding in the Hybrid setup'],['Check','In the fully local setup, a checkpoint reviews the plan before coding']],
+      description:'Specify and implement the comparisons needed to answer the research question.',
+      roles:[
+        ['Planning Agent','Uses the study design and the cohort variable structure to set the order for data checks, cohort comparisons, model fitting, and sensitivity analyses when the study calls for them.'],
+        ['Coding Agent','Writes scripts for those tasks and connects them to saved estimates and diagnostics. Review the plan and the recorded outputs to see where the actual analysis differs.']
+      ],
+      input:'The study design and constructed cohort',output:'Estimates, diagnostics, and data for tables and figures',related:'execution'
+    },
+    execution:{
+      facts:[['Information','L0–L3: in the study, an error message contained patient admission timestamps'],['Model','Local model for repair; every query runs in the approved local environment']],
+      description:'Run the scripts and inspect the outputs in the local research environment.',
+      roles:[
+        ['Local execution','Runs scripts during both cohort construction and analysis. The demo replays saved code and outputs.'],
+        ['Repair Agent','Uses the code, error messages, and execution logs to revise a script and rerun it until it succeeds or reaches the revision limit. Because this feedback can contain patient-level values, Repair runs on a local model.'],
+        ['Optional checkpoint','Compares each plan with the study design before code is written. It scores every requirement for importance and how well the plan meets it, then sends omitted or altered conditions back for revision. It matters most when smaller local models do all the work.']
+      ],
+      input:'Scripts, local data, and runtime feedback when available',output:'Run outputs that feed later tasks and the results page',related:'cohort'
+    },
+    results:{
+      facts:[['Information','L2 aggregates. They are still reviewed before sharing, since small groups can point to individuals']],
+      description:'Organize the recorded analysis into tables and figures that address the original question.',
+      roles:[
+        ['Analysis outputs','Browse the available estimates, balance checks, and survival figures. The figures and tables come from the saved study outputs.'],
+        ['Source notes','Check which step or analysis produced an artifact. The NHIS results include outputs from different analyses, so each is identified separately.']
+      ],
+      input:'Saved estimates, diagnostics, and figures',output:'Shareable aggregate results with source information'
+    }
+  };
+  const workflowMaps={
+    cohort:{
+      input:'Study design and database schema',
+      planTask:'Turn eligibility, exposure, and outcome rules into ordered tasks.',
+      plan:'Cohort construction plan',
+      codeTask:'Write scripts that query and assemble the cohort.',
+      code:'Cohort construction scripts',
+      output:'Cohort Dataset',
+      execution:'Scripts run locally to build the dataset. The Repair Agent handles runtime errors as needed.'
+    },
+    analysis:{
+      input:'Study design and selected cohort dataset',
+      planTask:'Choose the comparisons, statistical models, and checks to run.',
+      plan:'Statistical analysis plan',
+      codeTask:'Write scripts to fit the models and produce tables and figures.',
+      code:'Analysis scripts',
+      output:'Results',
+      execution:'Scripts run locally to produce estimates and figures. The Repair Agent handles runtime errors as needed.'
+    }
+  };
+  let featureId='handoffs';
+  let introWorkflow='';
+  const phaseFor=section=>({strategy:'question',dataset:'cohort'}[section]||section);
+  const guidePath=id=>'/guide/'+id;
+
+  function renderWorkflowMap(id,current='',detailed=false){
+    const map=workflowMaps[id];
+    const roles=workflowGuides[id].roles;
+    const step=key=>key===current?' class="workflow-map-current" aria-current="step"':'';
+    const status=key=>key===current?'<span class="workflow-map-status">Current step</span>':'';
+    const agent=(key,title,task,output)=>`<li${step(key)}><strong>${title}</strong>${status(key)}<p>${task}</p><div class="workflow-map-product"><span>Produces</span>${output}</div></li>`;
+    return `<div class="workflow-map">
+      <div class="workflow-map-edge"><div${step('input')}><span>Input</span><strong>${map.input}</strong>${status('input')}</div></div>
+      <ol class="workflow-map-agents">
+        ${agent('planning',roles[0][0],detailed?roles[0][1]:map.planTask,map.plan)}
+        ${agent('coding',roles[1][0],detailed?roles[1][1]:map.codeTask,map.code)}
+      </ol>
+      <div class="workflow-map-edge"><div${step('output')}><span>Output</span><strong>${map.output}</strong>${status('output')}</div></div>
+      <p class="workflow-map-execution">${map.execution}</p>
+    </div>`;
   }
-  function phaseFooter(index,label,path,extra='',lockReason=''){
-    return `<footer class="automation-footer"><a class="button quiet" href="#${stagePath(paths[Math.max(0,index-1)])}">${index?'Previous step':'Your question'}</a><span class="automation-position">${extra||`Step ${stepOf[index]} of 5 · ${names[index]}`}</span>${path?(lockReason?`<button class="button primary" type="button" disabled title="${esc(lockReason)}">Next Step</button>`:`<a class="button primary" href="#${stagePath(path)}">Next Step</a>`):'<button class="button primary" data-restart>Home</button>'}</footer>`;
+  function currentWorkflowStep(section){
+    if(!state.started)return '';
+    if(section==='dataset')return 'output';
+    if(section==='analysis'&&(!state.analysisDataset||!route.detail))return 'input';
+    return route.detail==='coding'&&pipes()[section].run.planReady?'coding':'planning';
+  }
+  function renderWorkflowPreview(stage,content,{full,selected,section,unlocked,position}){
+    const previewId='workflow-preview-'+stage.id;
+    const current=!full&&selected?currentWorkflowStep(section):'';
+    const stateAttrs=full
+      ?`data-intro-workflow="${stage.id}" aria-pressed="${selected}" aria-controls="introWorkflowDetail ${previewId}"`
+      :`${selected?'aria-current="step"':''} aria-controls="${previewId}"`;
+    const link=!full&&!selected&&unlocked
+      ?`<a class="button small" href="#${stagePath(stage.id)}">Open ${stage.title}</a>`:'';
+    return `<li class="agent-flow-item workflow-preview-item" style="--workflow-position:${position}%" data-workflow-preview="${stage.id}">
+      <button type="button" class="agent-flow-step" ${stateAttrs} aria-expanded="false">
+        ${content}<i class="workflow-disclosure" aria-hidden="true"></i>
+      </button>
+      <div class="workflow-preview" id="${previewId}" hidden>
+        <section class="workflow-preview-panel" aria-label="${stage.title} agent flow">
+          <h2>${stage.title}</h2>
+          ${renderWorkflowMap(stage.id,current)}
+          ${link}
+        </section>
+      </div>
+    </li>`;
+  }
+  function workflowStrip(section,mode){
+    const full=mode==='intro',replay=mode==='replay';
+    const active=full?introWorkflow:phaseFor(section);
+    const limit=replay?navigationLimit(section):0;
+    const stages=full?workflowStages:workflowStages.filter(stage=>stage.id!=='execution');
+    const help=replay&&paths.indexOf(section)>0?`<button class="text-button workflow-help" type="button" data-stage-guide="${active}" aria-haspopup="dialog">Stage guide</button>`:'';
+    return `<nav class="workflow-nav ${full?'workflow-nav-overview':'workflow-nav-compact'}" aria-label="Workflow">
+      <div class="workflow-nav-heading"><span>Workflow</span>${help}</div>
+      <ol class="agent-flow ${full?'agent-flow-preview':'agent-flow-compact'}">
+        ${stages.map((stage,index)=>{
+          const selected=active===stage.id;
+          const target=stage.id==='question'?'strategy':stage.id;
+          const unlocked=paths.indexOf(target)<=limit;
+          const content=`
+            <svg viewBox="0 0 24 24" aria-hidden="true">${stage.icon}</svg>
+            <span class="agent-flow-label">${stage.title}</span>
+`;
+          if(false&&workflowMaps[stage.id]&&replay){
+            return renderWorkflowPreview(stage,content,{full,selected,section,unlocked,position:(index+.5)/stages.length*100});
+          }
+          if(full)return `<li class="agent-flow-item"><button type="button" class="agent-flow-step" data-intro-workflow="${stage.id}" aria-controls="introWorkflowDetail" aria-pressed="${selected}">${content}</button></li>`;
+          const current=selected?'aria-current="step"':'';
+          if(replay&&(selected||!unlocked)){
+            return `<li class="agent-flow-item"><span class="agent-flow-step" ${current||'aria-disabled="true"'}>${content}</span></li>`;
+          }
+          const href=replay?stagePath(target):guidePath(stage.id);
+          return `<li class="agent-flow-item"><a href="#${href}" class="agent-flow-step" ${current}>${content}</a></li>`;
+        }).join('')}
+      </ol>
+    </nav>`;
+  }
+  function featureDetails(){
+    const feature=systemFeatures.find(item=>item.id===featureId);
+    const figures={handoffs:'feature-handoffs',local:'feature-levels',review:'feature-hybrid'};
+    return `<p>${esc(feature.description)}</p><figure class="system-feature-figure"><img src="assets/${figures[feature.id]}.svg" alt="" width="530" height="154"></figure>`;
+  }
+  function renderIntro(){
+    return `<section class="screen intro-screen">
+      <header class="intro-heading intro-hero">
+        <div class="intro-hero-inner">
+          <div class="intro-hero-copy">
+            <h1>From research question <span>to cohort analysis</span></h1>
+            <p>See what each agent produces and passes to the next in a recorded cohort study.</p>
+            <a class="button primary" href="#/question">Explore Study Examples</a>
+          </div>
+          <div class="intro-hero-visual" aria-hidden="true"><img class="hero-flow-img" src="assets/cohort-automation-tray.webp" width="1536" height="1024" alt="" fetchpriority="high"></div>
+        </div>
+      </header>
+      <section class="panel system-features" aria-labelledby="systemHeading">
+        <header><h2 id="systemHeading">How the system works</h2>
+          <div class="system-feature-choices" role="group" aria-label="System features">
+            ${systemFeatures.map((feature,index)=>`<button type="button" data-system-feature="${feature.id}" aria-controls="systemFeatureDetail" aria-pressed="${feature.id===featureId}"><span class="feature-num">${String(index+1).padStart(2,'0')}</span><span class="feature-text"><strong>${feature.title}</strong><small>${feature.hint}</small></span><i class="feature-arrow" aria-hidden="true"></i></button>`).join('')}
+          </div>
+        </header>
+        <div class="system-feature-content">
+          <div class="system-feature-detail" id="systemFeatureDetail" aria-live="polite">${featureDetails()}</div>
+        </div>
+      </section>
+      ${workflowStrip('','intro')}
+      <section class="panel workflow-guide intro-workflow-detail" id="introWorkflowDetail" tabindex="-1" ${introWorkflow?'':'hidden'}>${introWorkflow?guideSection(introWorkflow):''}</section>
+    </section>`;
+  }
+  function guideContent(id){
+    const guide=workflowGuides[id];
+    return `<div class="workflow-guide-content">
+      <p class="workflow-guide-summary">${esc(guide.description)}</p>
+      ${guide.facts?`<dl class="workflow-guide-facts">${guide.facts.map(([term,text])=>`<div><dt>${esc(term)}</dt><dd>${esc(text)}</dd></div>`).join('')}</dl>`:''}
+      ${workflowMaps[id]?renderWorkflowMap(id,'',true):`
+        <div class="workflow-guide-roles">${guide.roles.map(([role,description])=>`<article><h3>${esc(role)}</h3><p>${esc(description)}</p></article>`).join('')}</div>
+        <dl class="workflow-guide-handoff"><div><dt>Input</dt><dd>${esc(guide.input)}</dd></div><div><dt>Output</dt><dd>${esc(guide.output)}</dd></div></dl>`}
+      ${guide.related?route.section==='intro'
+        ?`<button class="text-button" type="button" data-related-workflow="${guide.related}">${guide.related==='execution'?'How execution and repair work':'See cohort construction'}</button>`
+        :`<a class="text-button" href="#${guidePath(guide.related)}" data-close-dialog>${guide.related==='execution'?'How execution and repair work':'See cohort construction'}</a>`:''}
+    </div>`;
+  }
+  function guideSection(id){
+    const stage=workflowStages.find(s=>s.id===id);
+    return `<header><h2>${stage.title}</h2></header>${guideContent(id)}`;
+  }
+  function showIntroWorkflow(id){
+    introWorkflow=id;
+    document.querySelectorAll('[data-intro-workflow]').forEach(button=>
+      button.setAttribute('aria-pressed',String(button.dataset.introWorkflow===id)));
+    const detail=$('introWorkflowDetail');
+    detail.innerHTML=guideSection(id);
+    detail.hidden=false;
+    detail.focus({preventScroll:true});
+    detail.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  }
+  function renderGuide(id){
+    const stage=workflowStages.find(s=>s.id===id)||workflowStages[0];
+    return `<section class="screen workflow-guide-screen">
+      <section class="panel workflow-guide scroll-region"><header><h1>${stage.title}</h1></header>${guideContent(stage.id)}</section>
+      <footer class="automation-footer"><a class="button quiet" href="#/intro">Back to Overview</a><a class="button primary" href="#/question">Explore Study Examples</a></footer>
+    </section>`;
+  }
+  function renderProgress(section){return workflowStrip(section,'replay');}
+  function renderGuideNavigation(id){return workflowStrip(workflowGuides[id]?id:'question','guide');}
+  let workflowPreviewListeners;
+  let pinnedWorkflowPreview;
+  function bindWorkflowPreviews(){
+    workflowPreviewListeners?.abort();
+    if(pinnedWorkflowPreview?.hash!==location.hash)pinnedWorkflowPreview=null;
+    const items=[...document.querySelectorAll('[data-workflow-preview]')];
+    if(!items.length)return;
+    workflowPreviewListeners=new AbortController();
+    const options={signal:workflowPreviewListeners.signal};
+    let opened;
+    function close(){
+      if(!opened)return;
+      opened.trigger.setAttribute('aria-expanded','false');
+      opened.preview.hidden=true;
+      opened=null;
+      pinnedWorkflowPreview=null;
+    }
+    function open(item,pin=false){
+      if(opened&&opened!==item)close();
+      opened=item;
+      item.trigger.setAttribute('aria-expanded','true');
+      item.preview.hidden=false;
+      if(pin)pinnedWorkflowPreview={id:item.element.dataset.workflowPreview,hash:location.hash};
+    }
+    for(const element of items){
+      const item={element,trigger:element.querySelector('button'),preview:element.querySelector('.workflow-preview')};
+      element.addEventListener('pointerenter',event=>{
+        if(event.pointerType!=='touch'&&!pinnedWorkflowPreview)open(item);
+      },options);
+      element.addEventListener('pointerleave',()=>{
+        if(opened===item&&!pinnedWorkflowPreview)close();
+      },options);
+      element.addEventListener('focusout',event=>{
+        if(opened===item&&event.relatedTarget&&!element.contains(event.relatedTarget))close();
+      },options);
+      item.trigger.addEventListener('click',()=>{
+        if(item.trigger.hasAttribute('data-intro-workflow')||opened===item&&pinnedWorkflowPreview){
+          close();
+        }else{
+          open(item,true);
+        }
+      },options);
+      if(pinnedWorkflowPreview?.id===element.dataset.workflowPreview)open(item,true);
+    }
+    document.addEventListener('click',event=>{
+      if(opened&&!opened.element.contains(event.target))close();
+    },options);
+    document.addEventListener('keydown',event=>{
+      if(!opened||event.key!=='Escape')return;
+      const trigger=opened.trigger;
+      if(opened.element.contains(document.activeElement))trigger.focus({preventScroll:true});
+      close();
+    },options);
+  }
+  const taskFlows={
+    question:[['in','io','Input','Research question'],['strategy','agent','Strategy Agent','Turns the question into a study design'],['out','io','Output','Study design']],
+    cohort:[['in','io','Input','Study design and schema'],['planning','agent','Planning Agent','Orders the cohort-building tasks'],['coding','agent','Coding Agent','Writes one script per task'],['exec','local','Execution & repair','Runs locally; a local model fixes errors'],['out','io','Output','Cohort dataset']],
+    analysis:[['in','io','Input','Study design + cohort'],['planning','agent','Planning Agent','Plans comparisons and models'],['coding','agent','Coding Agent','Writes the analysis scripts'],['exec','local','Execution & repair','Runs locally; a local model fixes errors'],['out','io','Output','Results']]
+  };
+  const flowFor={strategy:['question','strategy'],cohortPlan:['cohort','planning'],cohortCode:['cohort',['coding','exec']],dataset:['cohort','out'],choose:['analysis','in'],analysisPlan:['analysis','planning'],analysisCode:['analysis',['coding','exec']],results:['analysis','out']};
+  function taskFlow(key){
+    const [phase,current]=flowFor[key]||[];if(!phase)return '';
+    const nodes=taskFlows[phase],active=[].concat(current),at=nodes.findIndex(n=>active.includes(n[0]));
+    return `<ol class="task-flow" aria-label="Task flow">${nodes.map(([id,kind,title,task],i)=>{
+      const state=active.includes(id)?'current':i<at?'done':'next';
+      const tag=state==='current'?'Now':state==='done'?'Done':kind==='io'?title:'Next';
+      return `<li class="task-node is-${kind} is-${state}" ${state==='current'?'aria-current="step"':''}><span class="task-node-tag">${tag}</span><strong>${esc(kind==='io'?task:title)}</strong>${kind==='io'?'':`<small>${esc(task)}</small>`}</li>`;}).join('')}</ol>`;
+  }
+  function flowHeading(title,subtitleHtml,actions,key,extraClass=''){
+    return `<header class="screen-heading flow-heading ${extraClass}"><h1 class="sr-only">${esc(title)}</h1>${actions?`<div class="flow-meta"><p class="sr-only">${subtitleHtml}</p><div class="heading-actions">${actions}</div></div>`:`<p class="sr-only">${subtitleHtml}</p>`}${taskFlow(key)}</header>`;
+  }
+  function phaseHead(title,subtitle,actions='',flow=''){
+    if(flow)return flowHeading(title,esc(subtitle||''),actions,flow);
+    return `<header class="screen-heading"><div><h1>${esc(title)}</h1>${subtitle?`<p>${esc(subtitle)}</p>`:''}</div>${actions?`<div class="heading-actions">${actions}</div>`:''}</header>`;
+  }
+  function phaseFooter(previous,path='',lockReason=''){
+    return `<footer class="automation-footer"><a class="button quiet" href="#${stagePath(previous)}">Previous Step</a>${path?(lockReason?`<button class="button primary" type="button" disabled title="${esc(lockReason)}">Next Step</button>`:`<a class="button primary" href="#${stagePath(path)}">Next Step</a>`):'<button class="button primary" data-restart>Home</button>'}</footer>`;
   }
   function guard(){return `<section class="screen"><header class="screen-heading"><div><span class="eyebrow">HYBRID COHORT AUTOMATION</span><h1>Start with the research question.</h1></div></header><section class="panel empty-state"><span class="empty-icon" aria-hidden="true">?</span><h2>One question starts the process.</h2><p>This replay follows the recorded study. Open it to continue to this step.</p><button class="button primary" data-open-recorded>Open the connected study</button><a class="text-button" href="#/question">Enter a research question</a></section></section>`;}
-  function renderQuestionInput(example=null){return `<section class="screen question-screen ${example?'study-preview':''}">${phaseHead(0,example?'Explore this example question.':'Start with your research question.',example?'The question is available to inspect. Its recorded automation artifacts have not been connected yet.':'Your question is the starting point. The Hybrid setup and database are already configured.','<a class="button quiet" href="#/question">All study examples</a>')}<div class="question-layout"><form class="panel question-form" id="questionForm"><div class="question-form-title"><span class="eyebrow">THE ONLY INPUT FROM YOU</span><h2>${example?esc(example.title):'What do you want to investigate?'}</h2></div><div class="question-field-area"><label for="researchQuestion">Research question</label><textarea id="researchQuestion" spellcheck="false" ${example?'readonly':''} required maxlength="1200" placeholder="Describe the population, exposure, and outcome you want to study…">${esc(state.draft)}</textarea><p class="question-field-note">A short question is enough. The Strategy Agent specifies the study conditions.</p><p id="questionError" class="question-error" role="alert" hidden></p><button class="text-button" type="button" id="useConnectedQuestion">Use the connected study question</button></div><div class="question-submit"><div><span class="tag frontier-tag">${example?'Question preview':'Recorded study'}</span><p>${example?'No recorded automation run is connected for this question.':'Replay the connected artifacts for this question.'}</p></div><button class="button primary" type="submit" ${example?'disabled':''}>${example?'Replay not connected':'Start Hybrid replay'}</button></div></form><aside class="question-context"><section class="panel question-promise"><span class="eyebrow">FROM YOUR QUESTION</span><h2>${example?esc(example.title):'A specified study.<br>An ordered plan.<br>Executable code.'}</h2><p>${example?'An example research question. Choose the connected study to explore a recorded Hybrid replay.':'Follow the outputs as one Agent hands them to the next.'}</p><button class="text-button" type="button" data-process-details>What happens after I start?</button></section><section class="panel preset-card"><span class="eyebrow">PRECONFIGURED FOR THIS STUDY</span><dl><div><dt>Data environment</dt><dd>MIMIC-IV 3.1</dd></div><div><dt>Generation</dt><dd>Frontier models</dd></div><div><dt>Data access & repair</dt><dd>Local environment</dd></div></dl><span class="small-note">No database or model setup is requested from the visitor.</span></section></aside></div><div class="question-bottom"><span>Question input</span><span>Study specification</span><span>Step-by-step planning</span><span>Code & local execution</span><span>Result analysis</span></div></section>`;}
-  function renderStudyGallery(){return `<section class="screen study-gallery-screen"><header class="screen-heading"><div><h1>Research Question</h1></div></header><div class="study-card-grid" aria-label="Research question examples">${studyExamples.map(ex=>`<a class="study-card" href="#${stagePath('strategy',ex)}${ex.id==='pravastatin'?'?study=pravastatin':''}" data-study-example="${ex.id}" aria-label="${esc(ex.title)}"><div class="study-card-media"><img src="${ex.image}" alt="${esc(ex.alt)}" width="768" height="512" decoding="async" fetchpriority="${ex.connected?'high':'auto'}"></div><div class="study-card-content"><h2>${esc(ex.title)}</h2><span class="study-question-label">Research question</span><p class="study-card-question">${esc(ex.displayQuestion||ex.question)}</p>${ex.description?`<p class="study-card-description">${esc(ex.description)}</p>`:'' }<div class="study-card-cta study-card-dataset"><span>${esc(ex.dataset)}</span><span>Version ${esc(ex.version)}</span></div></div></a>`).join('')}<div class="study-card empty-study-card" aria-hidden="true"></div></div></section>`;}
+  function renderQuestionInput(example=null){return `<section class="screen question-screen ${example?'study-preview':''}">${phaseHead(example?'Explore this example question.':'Start with your research question.',example?'The question is available to inspect. Its recorded automation artifacts have not been connected yet.':'Your question is the starting point. The Hybrid setup and database are already configured.','<a class="button quiet" href="#/question">All study examples</a>')}<div class="question-layout"><form class="panel question-form" id="questionForm"><div class="question-form-title"><span class="eyebrow">THE ONLY INPUT FROM YOU</span><h2>${example?esc(example.title):'What do you want to investigate?'}</h2></div><div class="question-field-area"><label for="researchQuestion">Research question</label><textarea id="researchQuestion" spellcheck="false" ${example?'readonly':''} required maxlength="1200" placeholder="Describe the population, exposure, and outcome you want to study…">${esc(state.draft)}</textarea><p class="question-field-note">A short question is enough. The Strategy Agent specifies the study conditions.</p><p id="questionError" class="question-error" role="alert" hidden></p><button class="text-button" type="button" id="useConnectedQuestion">Use the connected study question</button></div><div class="question-submit"><div><span class="tag frontier-tag">${example?'Question preview':'Recorded study'}</span><p>${example?'No recorded automation run is connected for this question.':'Replay the connected artifacts for this question.'}</p></div><button class="button primary" type="submit" ${example?'disabled':''}>${example?'Replay not connected':'Start Hybrid replay'}</button></div></form><aside class="question-context"><section class="panel question-promise"><span class="eyebrow">FROM YOUR QUESTION</span><h2>${example?esc(example.title):'A specified study.<br>An ordered plan.<br>Executable code.'}</h2><p>${example?'An example research question. Choose the connected study to explore a recorded Hybrid replay.':'Follow the outputs as one Agent hands them to the next.'}</p><button class="text-button" type="button" data-process-details>What happens after I start?</button></section><section class="panel preset-card"><span class="eyebrow">PRECONFIGURED FOR THIS STUDY</span><dl><div><dt>Data environment</dt><dd>MIMIC-IV 3.1</dd></div><div><dt>Generation</dt><dd>Frontier models</dd></div><div><dt>Data access & repair</dt><dd>Local environment</dd></div></dl><span class="small-note">No database or model setup is requested from the visitor.</span></section></aside></div><div class="question-bottom"><span>Question input</span><span>Study specification</span><span>Step-by-step planning</span><span>Code & local execution</span><span>Result analysis</span></div></section>`;}
+  function renderStudyGallery(){return `<section class="screen study-gallery-screen"><header class="screen-heading"><div><h1>Choose a research question</h1></div></header><div class="study-card-grid" aria-label="Research question examples">${studyExamples.map(ex=>`<a class="study-card" href="#${stagePath('strategy',ex)}${ex.id==='pravastatin'?'?study=pravastatin':''}" data-study-example="${ex.id}" aria-label="${esc(ex.title)}"><div class="study-card-media"><img src="${ex.image}" alt="${esc(ex.alt)}" width="768" height="512" decoding="async" fetchpriority="${ex.connected?'high':'auto'}"></div><div class="study-card-content"><h2>${esc(ex.title)}</h2><span class="study-question-label">Research question</span><p class="study-card-question">${esc(ex.displayQuestion||ex.question)}</p>${ex.description?`<p class="study-card-description">${esc(ex.description)}</p>`:'' }<div class="study-card-cta study-card-dataset"><span>${esc(ex.dataset)}</span><span>Version ${esc(ex.version)}</span></div></div></a>`).join('')}<div class="study-card empty-study-card" aria-hidden="true"></div></div></section>`;}
   function renderQuestion(){const ex=studyExamples.find(x=>x.id===route.params.get('example')&&!x.connected);if(ex){if(state.exampleId!==ex.id){state.draft=ex.question;state.exampleId=ex.id;}return renderQuestionInput(ex);}if(route.params.get('mode')==='input'){state.exampleId=null;return renderQuestionInput();}return renderStudyGallery();}
   function strategyOutput(){
-    if(state.generated)return outputPanel(isNhis()?'nhisDesign':'strategy','Strategy Agent output');
+    if(state.generated)return outputPanel(studyDesignKey(),'Strategy Agent output');
     const body=state.generating
       ?`<div class="generation-wait" role="status"><span class="run-spinner" aria-hidden="true"></span><p>Strategy Agent is generating the study design…</p></div>`
       :`<div class="generation-wait"><p>Press <strong>Generation</strong> to create the Strategy Agent output.</p></div>`;
@@ -53,7 +348,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   }
   function renderStrategy() {
     return `<section class="screen automation-screen">
-      ${phaseHead(1,'Strategy Agent Output',isNhis()?activeStudy().title:'',isNhis()?'<button class="button quiet" data-nhis-details="dataset">Data source</button>':'')}
+      ${phaseHead('Strategy Agent',activeStudy().title,isNhis()?'<button class="button quiet" data-nhis-details="dataset">Data source</button>':'','strategy')}
       <div class="strategy-layout">
         <aside class="panel question-input-card">
           <span class="eyebrow">INPUT · YOUR QUESTION</span>
@@ -63,7 +358,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
         </aside>
         ${strategyOutput()}
       </div>
-      ${phaseFooter(1,'Next Step','cohort','',state.generated?'':'Generate the study design first.')}
+      ${phaseFooter('question','cohort',state.generated?'':'Generate the study design first.')}
     </section>`;
   }
   function runStrategyGeneration(){
@@ -73,31 +368,29 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   }
 
   /* ---------- Cohort construction, cohort dataset, analysis, result ---------- */
-  /* Cohort construction and Analysis share one pipeline view:
-     running view (Planning Agent loading -> plan JSON, Coding Agent step by step),
-     then the result view (clickable plan steps on the left, step code + outputs on the right). */
+  const studyDesignKey=()=>isNhis()?'nhisDesign':'strategy';
   const PIPE=(window.PIPELINE_DATA&&window.PIPELINE_DATA.cohort)||{steps:[],final:null};
   const APIPE=window.ANALYSIS_DATA||null;
   if(APIPE&&APIPE.plan)D.outputs.analysisPlan={filename:APIPE.plan.filename,url:APIPE.plan.url,text:APIPE.plan.text};
   const localData=()=>null;
   const parsePlan=key=>{try{return JSON.parse(D.outputs[key].text);}catch{return [];}};
-  const cohortRun={status:'idle',selected:1,token:0};
-  const analysisRun={status:'idle',selected:1,token:0};
+  const cohortRun={status:'idle',selected:1,token:0,planReady:false};
+  const analysisRun={status:'idle',selected:1,token:0,planReady:false};
   const datasetView={page:0,filter:'',pageSize:50};
   const fmt=n=>Number(n).toLocaleString('en-US');
   const pad=n=>String(n).padStart(2,'0');
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  const replayTiming={read:300,plan:520,handoff:160,write:95,output:120,complete:140};
+  const replayTiming={plan:520,write:95,output:120,complete:140};
   const firstRows=o=>o.find(x=>typeof x.rows==='number');
   const pravastatinPipes={
-    cohort:{id:'cohort',phase:2,path:'cohort',next:'dataset',run:cohortRun,planKey:'cohortPlan',planSteps:parsePlan('cohortPlan'),steps:PIPE.steps,
-      reading:'Reading the study design…',writing:'Writing the cohort construction plan…',
-      doneText:n=>`${n} scripts generated and run · cohort built`,
+    cohort:{id:'cohort',next:'dataset',run:cohortRun,planKey:'cohortPlan',planSteps:parsePlan('cohortPlan'),steps:PIPE.steps,
+      reading:'Reading the study design…',
+      doneText:n=>`${n} recorded scripts · cohort outputs`,
       outputs:s=>[{name:s.output.table,kind:'table',exists:true,rows:s.output.rows,columns:s.output.columns}],
       where:'hosp.duckdb',local:()=>localData()||{}},
-    analysis:{id:'analysis',phase:4,path:'analysis',next:'results',run:analysisRun,planKey:'analysisPlan',planSteps:APIPE?parsePlan('analysisPlan'):[],steps:APIPE?APIPE.steps:[],
-      reading:'Reading the study design and cohort structure…',writing:'Writing the statistical analysis plan…',
-      doneText:n=>`${n} scripts generated and run · analysis complete`,
+    analysis:{id:'analysis',next:'results',run:analysisRun,planKey:'analysisPlan',planSteps:APIPE?parsePlan('analysisPlan'):[],steps:APIPE?APIPE.steps:[],
+      reading:'Reading the study design and selected cohort…',
+      doneText:n=>`${n} recorded scripts · analysis outputs`,
       outputs:s=>s.outputs,
       where:'output/analysis_output',local:()=>window.SHARED_ANALYSIS||{}}
   };
@@ -109,111 +402,202 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   };
   const pipes=()=>isNhis()?nhisPipes:pravastatinPipes;
   const resultArtifacts=()=>isNhis()?nhis.results:window.SHARED_ANALYSIS;
-  const pipelineActions=P=>P.recorded?`<button class="button quiet" data-nhis-details="${P.id==='cohort'?'checkpoint':'analysis-plan'}">${P.id==='cohort'?'Checkpoint':'Analysis strategy'}</button><button class="button quiet" data-nhis-details="repair">Execution &amp; repair</button>`:'';
+  const phaseLabel=P=>P.id==='cohort'?'Cohort Construction':'Analysis';
+  const planPath=P=>P.id==='cohort'?'cohort':'analysis/planning';
+  function recordedCohort(){
+    const data=isNhis()?nhis.final:PIPE.final;
+    const finalStep=pipes().cohort.steps.at(-1);
+    if(!data||!finalStep)return null;
+    const output=pipes().cohort.outputs(finalStep)[0];
+    if(!output||output.exists===false)return null;
+    const study=activeStudy();
+    return {name:output.name,source:study.dataset+' '+study.version,rows:data.rows,columns:data.columns.length};
+  }
+  const planningActions=P=>P.recorded?`<button class="button quiet" data-nhis-details="${P.id==='cohort'?'checkpoint':'analysis-plan'}">${P.id==='cohort'?'Checkpoint':'Analysis strategy'}</button>`:'';
   function rowDone(P,s){if(P.recorded)return s.recorded?'Saved script':'Script not connected';const o=P.outputs(s),r=firstRows(o);return `✓ ${o[0]?o[0].name:''}${o.length>1?` +${o.length-1}`:''}${r?` · ${fmt(r.rows)} rows`:''}`;}
+  const planTitle=(entry,fallback)=>entry?.step_name||entry?.analysis_method||fallback;
+  const planInputs=entry=>Array.isArray(entry?.input)?entry.input:(entry?.data_input?.name||'').split(';').map(name=>name.trim()).filter(Boolean);
+  const inputLabels={
+    temp_sepsis_diagnoses:'Sepsis diagnoses',temp_infection_evidence:'Infection evidence',
+    cohort_adult_icu_stays:'Adult ICU stays','hosp.duckdb.admissions':'Hospital admissions'
+  };
+  function renderPlanning(P){
+    const out=D.outputs[P.planKey];
+    const ready=P.run.planReady&&out;
+    const analysis=P.id==='analysis';
+    const waiting=`<section class="panel output-panel" ${out?'data-plan-replay="'+P.id+'"':''}>
+      <div class="automation-panel-header"><div><span class="eyebrow">OUTPUT</span><h2>Planning Agent output</h2></div></div>
+      ${out?`<div class="generation-wait" role="status"><span class="run-spinner" aria-hidden="true"></span><p>${esc(P.reading)}</p></div>`:'<div class="generation-wait"><p>Not connected yet</p></div>'}
+    </section>`;
+    return `<section class="screen automation-screen pipeline-screen">
+      ${phaseHead('Planning Agent',phaseLabel(P)+' · '+activeStudy().title,planningActions(P),P.id==='cohort'?'cohortPlan':'analysisPlan')}
+      <div class="recorded-plan${analysis?'':' design-first'}">
+        ${analysis?'':outputPanel(studyDesignKey(),'Study design · from Strategy Agent').replace('>OUTPUT<','>INPUT · STUDY DESIGN<')}
+        ${analysis?`<aside class="panel recorded-plan-inputs scroll-region">
+          <span class="eyebrow">INPUT</span>
+          <h2>${analysis?'Study design and cohort':'Study design'}</h2>
+          <button class="text-button" type="button" data-input-design aria-haspopup="dialog">View Strategy Agent output</button>
+          <div class="recorded-plan-cohort"><span class="eyebrow">SELECTED COHORT</span><strong>${esc(state.analysisDataset)}</strong></div>
+        </aside>`:''}
+        ${ready?outputPanel(P.planKey,'Planning Agent output'):waiting}
+      </div>
+      ${phaseFooter(analysis?'analysis':'strategy',P.id+'/coding',ready?'':'Available when the plan is ready.')}
+    </section>`;
+  }
+  async function playPlan(P,element){
+    const R=P.run,token=++R.token;
+    await sleep(replayTiming.plan);
+    if(token!==R.token||!element.isConnected)return;
+    R.planReady=true;
+    go(stagePath(planPath(P)));
+  }
+  function pipelineHeading(P){
+    const complete=P.run.status==='done';
+    const progress=complete?`Step ${pad(P.run.selected)} of ${P.steps.length}`:'Recorded replay';
+    const repair=P.recorded?'<button class="button quiet" data-nhis-details="repair">Execution &amp; repair</button>':'';
+    return flowHeading('Coding Agent',`${phaseLabel(P)} · ${esc(activeStudy().title)} · <span id="pipelinePosition">${progress}</span>`,repair,P.id==='cohort'?'cohortCode':'analysisCode','pipeline-heading');
+  }
+  function stepPicker(P){
+    return `<label class="sr-only" for="pipeStepSelect">Step</label><select class="select-control pipeline-step-picker" id="pipeStepSelect" data-pipe="${P.id}">${P.steps.map(s=>`<option value="${s.step}" ${s.step===P.run.selected?'selected':''}>Step ${pad(s.step)} · ${esc(planTitle(P.planSteps[s.step-1],s.file))}</option>`).join('')}</select>`;
+  }
 
   function runView(P){
     return `<section class="screen automation-screen pipeline-screen" data-pipe-run="${P.id}">
-      ${phaseHead(P.phase,'Planning Agent / Coding Agent Output','',pipelineActions(P))}
+      ${pipelineHeading(P)}
       <div class="panel pipeline-run">
-        <section class="run-column" id="runPlanning">
-          <div class="run-column-head"><span class="run-agent">Planning Agent</span><span class="run-badge" id="planBadge">Running</span></div>
-          <p class="run-status" id="planStatus"><span class="run-spinner" aria-hidden="true"></span><span>${esc(P.reading)}</span></p>
-          <div class="run-output" id="planOutput"></div>
-        </section>
-        <section class="run-column waiting" id="runCoding">
-          <div class="run-column-head"><span class="run-agent">Coding Agent · ${P.recorded?'saved artifacts':'local execution'}</span><span class="run-badge" id="codeBadge">Waiting</span></div>
-          <p class="run-status" id="codeStatus"><span>Waits for the plan.</span></p>
+        <section class="run-column">
+          <div class="run-column-head"><span class="run-agent">Recorded scripts</span><span class="run-badge" id="codeBadge">Replaying</span></div>
+          <p class="run-status" id="codeStatus" role="status"><span>Loading the first task…</span></p>
           <ol class="run-list" id="codeList"></ol>
         </section>
       </div>
-      ${phaseFooter(P.phase,'Next Step',P.next,'','Available when all outputs are ready.')}
+      ${phaseFooter(planPath(P),P.next,'Available when all outputs are ready.')}
     </section>`;
   }
   async function playRun(P){
-    const R=P.run,token=++R.token,out=D.outputs[P.planKey];
+    const R=P.run,token=++R.token;
     const alive=()=>token===R.token&&document.querySelector(`[data-pipe-run="${P.id}"]`);
-    const status=(id,text,busy)=>{$(id).innerHTML=`${busy?'<span class="run-spinner" aria-hidden="true"></span>':'<span class="run-check" aria-hidden="true">✓</span>'}<span>${text}</span>`;};
-    await sleep(replayTiming.read);if(!alive())return;
-    status('planStatus',esc(P.writing),true);
-    await sleep(replayTiming.plan);if(!alive())return;
-    status('planStatus',esc(out.filename),false);
-    $('planOutput').innerHTML=rawOutput(out.text,'Planning Agent output');
-    await sleep(replayTiming.handoff);if(!alive())return;
-    $('planBadge').textContent='Done';$('planBadge').classList.add('done');
-    $('runCoding').classList.remove('waiting');$('codeBadge').textContent='Running';
+    const status=(message,busy)=>{$('codeStatus').innerHTML=`${busy?'<span class="run-spinner" aria-hidden="true"></span>':'<span class="run-check" aria-hidden="true">✓</span>'}<span>${esc(message)}</span>`;};
     for(const s of P.steps){
       if(!alive())return;
-      status('codeStatus',`Step ${pad(s.step)} of ${pad(P.steps.length)}`,true);
-      $('codeList').insertAdjacentHTML('beforeend',`<li id="codeRow${s.step}"><span class="run-index">${pad(s.step)}</span><span class="run-file">${esc(s.file)}</span><span class="run-state">${P.recorded?'Loading script…':'Writing code…'}</span></li>`);
+      const progress=`Step ${pad(s.step)} of ${P.steps.length}`;
+      $('pipelinePosition').textContent=progress;
+      status(`${progress} · ${planTitle(P.planSteps[s.step-1],s.file)}`,true);
+      $('codeList').insertAdjacentHTML('beforeend',`<li id="codeRow${s.step}"><span class="run-index">${pad(s.step)}</span><span class="run-file">${esc(s.file)}</span><span class="run-state">Loading script…</span></li>`);
       $('codeList').lastElementChild.scrollIntoView({block:'nearest'});
       await sleep(replayTiming.write);if(!alive())return;
-      $('codeRow'+s.step).querySelector('.run-state').textContent=P.recorded?'Checking saved artifacts…':'Running locally…';
+      $('codeRow'+s.step).querySelector('.run-state').textContent='Loading recorded output…';
       await sleep(replayTiming.output);if(!alive())return;
-      const st=$('codeRow'+s.step).querySelector('.run-state');st.textContent=rowDone(P,s);st.classList.add('done');
+      const st=$('codeRow'+s.step).querySelector('.run-state');st.textContent=rowDone(P,s);st.classList.add('done');$('codeRow'+s.step).classList.add('run-open');$('codeRow'+s.step).title='Open this script';
     }
-    status('codeStatus',esc(P.doneText(P.steps.length)),false);
+    status(P.doneText(P.steps.length),false);
     $('codeBadge').textContent='Done';$('codeBadge').classList.add('done');
     await sleep(replayTiming.complete);if(!alive())return;
-    R.status='done';go(stagePath(P.path));
+    R.status='done';go(stagePath(P.id+'/coding'));
   }
 
-  function planJsonPanel(P,selected){
-    const out=D.outputs[P.planKey];
+  function codingTaskPanel(P,s){
+    const entry=P.planSteps[s.step-1];
+    const inputs=planInputs(entry);
     return `<section class="panel pipeline-plan">
-      <header class="automation-panel-header"><div><span class="eyebrow">PLANNING AGENT · OUTPUT</span><h2>${esc(out.filename)}</h2></div><a class="button small" href="${esc(out.url)}" download data-download="output:${P.planKey}">Download</a></header>
-      <div class="plan-json scroll-region">${P.planSteps.length?P.planSteps.map((s,i)=>`<button type="button" class="plan-json-step ${selected===i+1?'active':''}" data-pipe="${P.id}" data-step="${i+1}" aria-pressed="${selected===i+1}"><span class="plan-json-index">Step ${pad(i+1)}</span><pre>${esc(JSON.stringify(s,null,2))}</pre></button>`).join(''):'<p class="small-note">The plan file could not be read.</p>'}</div>
+      <header><h2>Coding task</h2></header>
+      <div class="selected-plan-body scroll-region">
+        <span class="eyebrow">SELECTED TASK</span>
+        <h3>${esc(planTitle(entry,s.title||s.file))}</h3>
+        ${inputs.length?`<h4>Inputs</h4><ul class="step-inputs">${inputs.map(input=>`<li title="${esc(input)}">${esc(inputLabels[input]||input)}</li>`).join('')}</ul>`:''}
+      </div>
+      <footer><button class="button quiet" type="button" data-inspect="plan" aria-haspopup="dialog">View full plan</button></footer>
     </section>`;
   }
   function previewTable(p,total){
     return `<div class="output-preview scroll-region"><table><thead><tr>${p.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${p.rows.map(r=>`<tr>${r.map(v=>`<td>${esc(String(v??''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="output-local-note">${typeof total==='number'&&p.rows.length<total?`First ${p.rows.length} of ${fmt(total)} rows`:`${fmt(p.rows.length)} rows`} · aggregate results</p>`;
   }
   const localOnly='<p class="output-local-note">Shown only in the local version (MIMIC-IV derived data).</p>';
-  function outputBlock(P,o){
+  function outputBlock(P,s,o,index){
     const L=P.local();
     const meta=o.kind==='png'?'Figure':o.kind==='xlsx'?`Excel workbook · ${(o.sheets||[]).length} sheets`:o.kind==='json'?'JSON':typeof o.rows==='number'?`${fmt(o.rows)} rows × ${(o.columns||[]).length} columns`:'';
+    const next=P.planSteps.slice(s.step).find(step=>planInputs(step).some(name=>name===o.name||name.endsWith('::'+o.name)));
     let body='';
     if(o.exists===false)body='<p class="output-local-note">A run-linked output is not connected.</p>';
-    else if(o.kind==='png')body=L.images&&L.images[o.name]?`<figure class="output-figure"><img src="${esc(L.images[o.name])}" alt="${esc(o.name)}" loading="lazy"></figure><p class="output-local-note">local only</p>`:localOnly;
+    else if(o.kind==='png')body=L.images&&L.images[o.name]?`<figure class="output-figure"><img src="${esc(L.images[o.name])}" alt="${esc(o.name)}" loading="lazy"></figure>`:localOnly;
     else if(o.kind==='json')body=L.texts&&L.texts[o.name]?`<pre class="output-preview output-text scroll-region"><code>${esc(L.texts[o.name])}</code></pre><p class="output-local-note">local only</p>`:localOnly;
     else if(o.kind==='xlsx')body=`<div class="output-columns open-columns"><div>${(o.sheets||[]).map(n=>`<span>${esc(n)}</span>`).join('')}</div></div>`;
-    else{const p=L.previews&&L.previews[o.name];body=p?previewTable(p,o.rows):'<p class="output-local-note">Patient-level rows are local only</p>';}
+    else{
+      const p=L.previews?.[o.name];
+      const note=o.kind==='table'||o.kind==='parquet'||['processed_cohort.csv','cohort_with_ps.csv','matched_cohort.csv'].includes(o.name)
+        ?'Patient-level rows are local only':'The output preview is not connected.';
+      body=p?previewTable(p,o.rows):`<p class="output-local-note">${note}</p>`;
+    }
     return `<div class="code-output-block">
-        <div class="code-output-head"><span class="eyebrow">OUTPUT · ${esc(P.where)}</span><strong>${esc(o.name)}</strong><span>${esc(meta)}</span></div>
-        ${o.columns&&o.columns.length?`<details class="output-columns"><summary>Columns</summary><div>${o.columns.map(c=>`<span title="${esc(c.type||'')}">${esc(c.name)}</span>`).join('')}</div></details>`:''}
+        <div class="code-output-head"><span class="eyebrow">OUTPUT · ${esc(P.where)}</span><strong>${esc(o.name)}</strong>${meta?`<span class="artifact-metadata">${esc(meta)}</span>`:''}</div>
+        ${next&&o.exists!==false?`<p class="artifact-next-use"><b>Next use</b> ${esc(planTitle(next,''))}</p>`:''}
         ${body}
+        ${o.columns?.length?`<button class="button quiet" type="button" data-inspect="columns" data-output-index="${index}" aria-haspopup="dialog">View columns</button>`:''}
       </div>`;
   }
-  function codePanel(P,selected){
-    const s=P.steps.find(x=>x.step===selected)||P.steps[0];
-    if(!s)return '<section class="panel pipeline-code empty-state"><h2>Code not connected yet</h2></section>';
-    return `<section class="panel pipeline-code">
-      <header class="automation-panel-header"><div><span class="eyebrow">CODING AGENT · OUTPUT</span><h2>${esc(s.file)}</h2>${P.recorded?`<span class="small-note">${esc(s.title)}</span>`:''}</div>
-        <label class="sr-only" for="pipeStepSelect">Step</label><select class="select-control" id="pipeStepSelect" data-pipe="${P.id}">${P.steps.map(x=>`<option value="${x.step}" ${x.step===s.step?'selected':''}>Step ${pad(x.step)} · ${esc(x.file)}</option>`).join('')}</select></header>
-      <pre class="code-view scroll-region"><code>${esc(s.code||'Not connected yet')}</code></pre>
-      <section class="code-output scroll-region">${s.note?`<p class="small-note step-evidence">${esc(s.note)}</p>`:''}${P.outputs(s).map(o=>outputBlock(P,o)).join('')}</section>
+  function selectedPipelineStep(P){
+    return P.steps.find(s=>s.step===P.run.selected)||P.steps[0];
+  }
+  function scriptTitle(P,s){return s.file==='step05_sepsis_icu_stays.py'?'Define the sepsis cohort':planTitle(P.planSteps[s.step-1],s.title||s.file);}
+  function scriptList(P){
+    return `<nav class="panel script-list" aria-label="Generated scripts">
+      <header><span class="eyebrow">CODING AGENT · SCRIPTS</span><strong>${P.steps.length} scripts</strong></header>
+      <ol class="scroll-region">${P.steps.map(s=>`<li><button type="button" data-script-step="${s.step}" aria-current="${s.step===P.run.selected}"><span class="script-index">${pad(s.step)}</span><span class="script-meta"><strong>${esc(scriptTitle(P,s))}</strong><small>${esc(s.file)}</small></span></button></li>`).join('')}</ol>
+    </nav>`;
+  }
+  function scriptViewer(P){
+    const s=selectedPipelineStep(P),view=P.run.view||'code',outputs=P.outputs(s);
+    const tab=(id,label)=>`<button type="button" data-script-view="${id}" aria-pressed="${view===id}">${label}</button>`;
+    let body;
+    if(view==='output')body=`<div class="code-output script-outputs">${outputs.map((o,i)=>outputBlock(P,s,o,i)).join('')}${s.note?`<p class="small-note step-evidence">${esc(s.note)}</p>`:''}</div>`;
+    else if(view==='task'){const inputs=planInputs(P.planSteps[s.step-1]);body=`<div class="selected-plan-body script-task"><span class="eyebrow">PLAN STEP ${pad(s.step)}</span><h3>${esc(scriptTitle(P,s))}</h3>${inputs.length?`<h4>Inputs</h4><ul class="step-inputs">${inputs.map(input=>`<li title="${esc(input)}">${esc(inputLabels[input]||input)}</li>`).join('')}</ul>`:''}<button class="button quiet" type="button" data-inspect="plan" aria-haspopup="dialog">View full plan</button></div>`;}
+    else body=s.code?`<pre class="code-view script-code"><code>${String(s.code).replace(/\n$/,'').split('\n').map(line=>`<span class="code-line">${esc(line)||' '}</span>`).join('\n')}</code></pre>`:'<p class="small-note script-empty">Script not connected yet</p>';
+    return `<section class="panel script-viewer" aria-label="Script viewer">
+      <header class="script-viewer-head">
+        <div><span class="eyebrow">STEP ${pad(s.step)} OF ${P.steps.length}</span><h2>${esc(scriptTitle(P,s))}</h2><p class="script-name">${esc(s.file)}</p></div>
+        <div class="script-tabs" role="group" aria-label="View">${tab('code','Code')}${tab('output',`Output${outputs.length?` · ${outputs.length}`:''}`)}${tab('task','Task')}</div>
+      </header>
+      <div class="script-viewer-body scroll-region">${body}</div>
     </section>`;
   }
-  function renderPipeline(P){
-    if(!P.steps.length)return `<section class="screen automation-screen pipeline-screen">${phaseHead(P.phase,'Planning Agent / Coding Agent Output','')}<section class="panel empty-state"><h2>Not connected yet</h2><p>The plan and code for this step have not been exported. Run build_demo_data.py.</p></section>${phaseFooter(P.phase,'Next Step',P.next,'','Outputs are not connected.')}</section>`;
+  function pipelineWorkspace(P){
+    return scriptList(P)+scriptViewer(P);
+  }
+  function inspectArtifact(P,kind,index){
+    const s=selectedPipelineStep(P);
+    if(kind==='plan'){
+      const out=D.outputs[P.planKey];
+      showDialog(out.filename,`<div class="artifact-dialog-actions"><a class="button quiet" href="${esc(out.url)}" data-download="output:${P.planKey}" download>Download plan</a></div>${rawOutput(out.text,'Full planning output')}`,'PLANNING AGENT · OUTPUT');
+    }else if(kind==='code'){
+      showDialog(s.file,rawOutput(s.code,'Generated code'),'CODING AGENT · OUTPUT');
+    }else if(kind==='columns'){
+      const output=P.outputs(s)[index];
+      showDialog(output.name,`<table class="artifact-columns"><thead><tr><th scope="col">Column</th><th scope="col">Type</th></tr></thead><tbody>${output.columns.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.type||'—')}</td></tr>`).join('')}</tbody></table>`,'OUTPUT COLUMNS');
+    }
+  }
+  function renderCoding(P){
+    if(!P.steps.length)return `<section class="screen automation-screen pipeline-screen">${phaseHead('Coding Agent',phaseLabel(P))}<section class="panel empty-state"><h2>Not connected yet</h2><p>Scripts and outputs are missing from this recording.</p></section>${phaseFooter(planPath(P),P.next,'Outputs are not connected.')}</section>`;
     if(P.run.status!=='done'){P.run.status='running';return runView(P);}
-    return `<section class="screen automation-screen pipeline-screen">
-      ${phaseHead(P.phase,'Planning Agent / Coding Agent Output','',pipelineActions(P))}
-      <div class="pipeline-final">${planJsonPanel(P,P.run.selected)}${codePanel(P,P.run.selected)}</div>
-      ${phaseFooter(P.phase,'Next Step',P.next)}
+    return `<section class="screen automation-screen pipeline-screen" data-pipe-workspace="${P.id}">
+      ${pipelineHeading(P)}
+      <div class="pipeline-final script-workspace">${pipelineWorkspace(P)}</div>
+      ${phaseFooter(planPath(P),P.next)}
     </section>`;
   }
-  function renderCohort(){return renderPipeline(pipes().cohort);}
+  function renderCohort(){
+    const P=pipes().cohort;
+    return route.detail==='coding'&&P.run.planReady?renderCoding(P):renderPlanning(P);
+  }
   function selectStep(P,n){
     P.run.selected=n;
-    document.querySelectorAll(`[data-pipe="${P.id}"][data-step]`).forEach(b=>{const on=Number(b.dataset.step)===n;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on);if(on)b.scrollIntoView({block:'nearest'});});
-    const old=document.querySelector('.pipeline-code');if(old){old.outerHTML=codePanel(P,n);bindCodePanel();}
+    $('pipelinePosition').textContent=`Step ${pad(n)} of ${P.steps.length}`;
+    document.querySelectorAll('[data-script-step]').forEach(b=>b.setAttribute('aria-current',String(Number(b.dataset.scriptStep)===n)));
+    document.querySelector('.script-viewer').outerHTML=scriptViewer(P);
   }
-  function bindCodePanel(){const sel=$('pipeStepSelect');if(sel)sel.addEventListener('change',()=>selectStep(pipes()[sel.dataset.pipe],Number(sel.value)));}
 
   function renderDataset(){
     return `<section class="screen automation-screen dataset-screen">
-      ${phaseHead(3,'Cohort Dataset','',isNhis()?'<button class="button quiet" data-nhis-details="dataset">Data source</button>':'')}
+      ${phaseHead('Cohort Dataset',activeStudy().title,isNhis()?'<button class="button quiet" data-nhis-details="dataset">Data source</button>':'','dataset')}
       <div class="dataset-layout">
         <section class="panel dataset-viewer">
           <div class="dataset-toolbar">
@@ -227,7 +611,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
           </div>
         </section>
       </div>
-      ${phaseFooter(3,'Open analysis','analysis')}
+      ${phaseFooter('cohort/coding','analysis')}
     </section>`;
   }
   function drawDataset(){
@@ -248,7 +632,35 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
     $('datasetNext').disabled=datasetView.page===pageCount-1;
   }
 
-  function renderAnalysis(){return renderPipeline(pipes().analysis);}
+  function renderAnalysisDataset(){
+    const dataset=recordedCohort();
+    return `<section class="screen automation-screen">
+      ${phaseHead('Choose a cohort dataset',activeStudy().title,'','choose')}
+      <div class="analysis-inputs">
+      ${D.outputs[studyDesignKey()]?outputPanel(studyDesignKey(),'Selected study design · from Strategy Agent').replace('>OUTPUT<','>INPUT 1 · STUDY DESIGN<'):''}
+      <form class="panel analysis-dataset-picker scroll-region" id="analysisDatasetForm">
+        <span class="eyebrow">INPUT 2 · COHORT</span>
+        <fieldset>
+          <legend>Choose a saved cohort dataset</legend>
+          ${dataset?`<label class="cohort-choice">
+            <input type="radio" name="dataset" value="${esc(dataset.name)}" required ${state.analysisDataset===dataset.name?'checked':''}>
+            <span><strong>${esc(dataset.name)}</strong><small>${esc(dataset.source)} · ${fmt(dataset.rows)} rows · ${fmt(dataset.columns)} columns</small></span>
+          </label>`:'<p>Not connected yet</p>'}
+        </fieldset>
+        <p class="analysis-inputs-note">The Planning Agent receives this study design together with the selected cohort's variable structure, not its patient rows.</p>
+      </form>
+      </div>
+      <footer class="automation-footer">
+        <a class="button quiet" href="#${stagePath('dataset')}">Previous Step</a>
+        <button class="button primary" type="submit" form="analysisDatasetForm" ${dataset&&state.analysisDataset===dataset.name?'':'disabled'}>Next Step</button>
+      </footer>
+    </section>`;
+  }
+  function renderAnalysis(){
+    if(!state.analysisDataset||!route.detail)return renderAnalysisDataset();
+    const P=pipes().analysis;
+    return route.detail==='coding'&&P.run.planReady?renderCoding(P):renderPlanning(P);
+  }
   /* Browse the shared result tables and figures. */
   const resultView={file:null,sheet:null};
   const kb=n=>typeof n==='number'?`${fmt(Math.max(1,Math.round(n/1024)))} KB`:'';
@@ -262,7 +674,10 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   function filePane(o){
     const L=resultArtifacts();
     const bar=`<header class="file-bar"><span class="file-badge ${o.kind}">${esc(o.kind.toUpperCase())}</span><strong>${esc(o.label)}</strong><span class="file-size">${kb(o.bytes)}</span><a class="button small" href="${esc(o.url||('shared-results/'+o.name))}" download>Download</a></header>`;
-    const note=o.note?`<p class="result-provenance">${esc(o.note)}</p>`:'';
+    const sourceName=o.name==='forest_plot.png'?'table2_mortality_associations.csv':o.name;
+    const source=!isNhis()&&APIPE?.steps.find(s=>s.outputs.some(item=>item.name===sourceName));
+    const origin=o.note||(source?`${o.name==='forest_plot.png'?'Figure based on':'Recorded output from'} Analysis · Step ${pad(source.step)} · ${source.file}`:'');
+    const note=origin?`<p class="result-provenance">${esc(origin)}</p>`:'';
     if(o.kind==='csv'){
       const table=L.previews[o.name];
       return `${bar}${note}<div class="xl-sheet scroll-region">${sheetGrid([table.columns,...table.rows])}</div>`;
@@ -275,17 +690,17 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   }
   function renderResults(){
     const files=resultArtifacts()?.files||[];
-    if(!files.length)return `<section class="screen automation-screen"><header class="screen-heading"><div><h1>Results</h1></div></header><section class="panel empty-state"><h2>Not connected yet</h2><p>The analysis outputs have not been exported. Run build_demo_data.py.</p></section>${phaseFooter(5,'','')}</section>`;
+    if(!files.length)return `<section class="screen automation-screen"><header class="screen-heading"><div><h1>Results</h1></div></header><section class="panel empty-state"><h2>Not connected yet</h2><p>The analysis outputs have not been exported. Run build_demo_data.py.</p></section>${phaseFooter('analysis/coding')}</section>`;
     const cur=files.find(o=>o.name===resultView.file)||files[0];resultView.file=cur&&cur.name;
     return `<section class="screen automation-screen results-screen">
-      <header class="screen-heading"><div><h1>Results</h1></div></header>
+      ${phaseHead('Results',activeStudy().title,'','results')}
       <div class="results-layout">
         <nav class="panel output-files" aria-label="Output files">
           <ul>${files.map(o=>`<li><button type="button" class="output-file ${o.name===resultView.file?'active':''}" aria-pressed="${o.name===resultView.file}" data-result-file="${esc(o.name)}"><span class="file-badge ${o.kind}">${esc(o.kind.toUpperCase())}</span><span class="output-file-name">${esc(o.label)}</span><span class="file-size">${kb(o.bytes)}</span></button></li>`).join('')}</ul>
         </nav>
         <section class="panel file-pane" id="filePane">${cur?filePane(cur):''}</section>
       </div>
-      ${phaseFooter(5,'','')}
+      ${phaseFooter('analysis/coding')}
     </section>`;
   }
   function showResultFile(){
@@ -298,12 +713,38 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
     const img=$('resultImage');if(img){const o=resultArtifacts().files.find(x=>x.name===resultView.file);const info=()=>{$('resultImageInfo').textContent=`PNG · ${img.naturalWidth} × ${img.naturalHeight} px · ${kb(o.bytes)}`;};if(img.complete)info();else img.addEventListener('load',info);img.addEventListener('click',()=>{const v=img.parentElement,on=v.classList.toggle('actual');$('resultImageInfo').textContent=`PNG · ${img.naturalWidth} × ${img.naturalHeight} px · ${kb(o.bytes)} · ${on?'100%':'fit'}`;});}
   }
   function bindPipeline(){
+    const planning=document.querySelector('[data-plan-replay]');
+    if(planning)playPlan(pipes()[planning.dataset.planReplay],planning);
     const runEl=document.querySelector('[data-pipe-run]');
-    if(runEl){const P=pipes()[runEl.dataset.pipeRun];if(P.run.status==='running')playRun(P);}
+    if(runEl){const P=pipes()[runEl.dataset.pipeRun];if(P.run.status==='running')playRun(P);
+      $('codeList').addEventListener('click',event=>{const row=event.target.closest('li.run-open');if(!row)return;P.run.token++;P.run.status='done';P.run.selected=Number(row.id.replace('codeRow',''));P.run.view='code';go(stagePath(P.id+'/coding'));});}
+    const datasetForm=$('analysisDatasetForm');
+    if(datasetForm){
+      const next=document.querySelector('button[form="analysisDatasetForm"]');
+      const selection=()=>new FormData(datasetForm).get('dataset');
+      datasetForm.addEventListener('change',()=>{next.disabled=!selection();});
+      datasetForm.addEventListener('submit',event=>{
+        event.preventDefault();
+        const selected=selection();
+        if(!selected||selected!==recordedCohort()?.name)return;
+        state.analysisDataset=selected;
+        go(stagePath('analysis/planning'));
+      });
+    }
     document.querySelectorAll('[data-result-file]').forEach(b=>b.addEventListener('click',()=>{resultView.file=b.dataset.resultFile;resultView.sheet=null;showResultFile();}));
     if($('filePane'))bindResultPane();
-    document.querySelectorAll('[data-pipe][data-step]').forEach(b=>b.addEventListener('click',()=>selectStep(pipes()[b.dataset.pipe],Number(b.dataset.step))));
-    bindCodePanel();
+    const workspace=document.querySelector('[data-pipe-workspace]');
+    if(workspace){
+      const pipe=pipes()[workspace.dataset.pipeWorkspace];
+      workspace.addEventListener('click',event=>{
+        const step=event.target.closest('[data-script-step]');
+        if(step){selectStep(pipe,Number(step.dataset.scriptStep));return;}
+        const view=event.target.closest('[data-script-view]');
+        if(view){pipe.run.view=view.dataset.scriptView;document.querySelector('.script-viewer').outerHTML=scriptViewer(pipe);return;}
+        const action=event.target.closest('[data-inspect]');
+        if(action)inspectArtifact(pipe,action.dataset.inspect,Number(action.dataset.outputIndex));
+      });
+    }
     if($('datasetTable')){
       drawDataset();
       $('datasetFilter').addEventListener('input',()=>{datasetView.filter=$('datasetFilter').value;drawDataset();});
@@ -328,31 +769,55 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   }
   /* Home: every generated result goes back to its initial state. */
   function resetAll(){
-    Object.assign(state,{studyId:'pravastatin',reached:0,question:recordedQuestion,draft:recordedQuestion,started:false,exampleId:null,generated:false,generating:false});state.genToken++;
-    for(const R of [cohortRun,analysisRun,...Object.values(nhisPipes||{}).map(P=>P.run)]){R.token++;Object.assign(R,{status:'idle',selected:1});}Object.assign(datasetView,{page:0,filter:''});resultView.file=null;resultView.sheet=null;
+    Object.assign(state,{studyId:'pravastatin',reached:0,question:recordedQuestion,draft:recordedQuestion,started:false,exampleId:null,generated:false,generating:false,analysisDataset:''});state.genToken++;
+    for(const R of [cohortRun,analysisRun,...Object.values(nhisPipes||{}).map(P=>P.run)]){R.token++;Object.assign(R,{status:'idle',selected:1,planReady:false});}Object.assign(datasetView,{page:0,filter:''});resultView.file=null;resultView.sheet=null;featureId='handoffs';introWorkflow='';
     try{sessionStorage.removeItem('cohortflow-connected-question');sessionStorage.removeItem('cohortflow-reached');}catch{}
   }
   /* Top-nav steps unlock one by one as each screen is reached; Home locks them again. */
   const stepIndex={strategy:1,cohort:2,dataset:3,analysis:4,results:5};
+  function navigationLimit(section){
+    if(!state.started)return 0;
+    const pipeline=pipes()[section];
+    const waiting=section==='strategy'&&!state.generated||pipeline&&pipeline.run.status!=='done';
+    return waiting?Math.min(state.reached,stepIndex[section]):state.reached;
+  }
   function markReached(section){const i=stepIndex[section];if(!i||i<=state.reached)return;state.reached=i;try{sessionStorage.setItem('cohortflow-reached',String(i));}catch{}}
   function render(r){route=r;
+    if(r.section==='intro')return renderIntro();
+    if(r.section==='guide')return renderGuide(r.detail);
     const study=studyExamples.find(ex=>ex.id===r.params.get('study'));
     if(r.section!=='question'&&study&&(!state.started||state.studyId!==study.id))activateStudy(study,study.question);
     if(r.section!=='question'&&!state.started)return guard();markReached(r.section);return ({question:renderQuestion,strategy:renderStrategy,cohort:renderCohort,dataset:renderDataset,analysis:renderAnalysis,results:renderResults}[r.section]||renderQuestion)();}
   function bind(){
+    document.querySelectorAll('[data-intro-workflow]').forEach(button=>button.addEventListener('click',()=>showIntroWorkflow(button.dataset.introWorkflow)));
+    $('introWorkflowDetail')?.addEventListener('click',event=>{
+      const button=event.target.closest('[data-related-workflow]');
+      if(button)showIntroWorkflow(button.dataset.relatedWorkflow);
+    });
+    bindWorkflowPreviews();
+    const featureButtons=document.querySelectorAll('[data-system-feature]');
+    featureButtons.forEach(button=>button.addEventListener('click',()=>{
+      featureId=button.dataset.systemFeature;
+      featureButtons.forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
+      $('systemFeatureDetail').innerHTML=featureDetails();
+    }));
+    document.querySelectorAll('[data-stage-guide]').forEach(button=>button.addEventListener('click',()=>{
+      const stage=workflowStages.find(item=>item.id===button.dataset.stageGuide);
+      showDialog(stage.title,guideContent(stage.id),'WORKFLOW GUIDE');
+    }));
     document.querySelectorAll('[data-study-example]').forEach(card=>card.addEventListener('click',e=>{if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;e.preventDefault();const ex=studyExamples.find(x=>x.id===card.dataset.studyExample);startQuestion(ex.question);}));
     document.querySelectorAll('[data-current-question]').forEach(b=>b.addEventListener('click',questionDialog));
     document.querySelectorAll('[data-open-recorded]').forEach(b=>b.addEventListener('click',()=>{const target=route&&paths.includes(route.section)&&route.section!=='question'?route.section:'strategy';startQuestion(activeStudy().question,target);}));
-    document.querySelectorAll('[data-restart]').forEach(b=>b.addEventListener('click',()=>{resetAll();go('/question');}));
+    document.querySelectorAll('[data-restart]').forEach(b=>b.addEventListener('click',()=>{resetAll();go('/intro');}));
     if($('researchQuestion'))$('researchQuestion').addEventListener('input',()=>{state.draft=$('researchQuestion').value;if($('questionError'))$('questionError').hidden=true;});
     if($('questionForm'))$('questionForm').addEventListener('submit',e=>{e.preventDefault();startQuestion($('researchQuestion').value);});
     if($('useConnectedQuestion'))$('useConnectedQuestion').addEventListener('click',()=>{state.draft=recordedQuestion;if(route.params.get('example')){state.exampleId=null;go('/question?mode=input');return;}$('researchQuestion').value=recordedQuestion;$('questionError').hidden=true;$('researchQuestion').focus();});
     document.querySelectorAll('[data-process-details]').forEach(b=>b.addEventListener('click',()=>showDialog('A question becomes an analysis task.','<h3>Strategy Agent</h3><p>Specifies the research question as population, exposure, comparator, outcome, timing, and analysis conditions.</p><h3>Planning Agent</h3><p>Uses that specification to create an ordered plan, with an input, operation, and output for each step.</p><h3>Coding, local execution & repair</h3><p>Implements each plan operation as code. Execution uses local data; a local Repair Agent handles runtime errors. A consistency Checkpoint is optional.</p><h3>Result analysis</h3><p>Shows the final outputs for the original question. Missing records remain clearly marked.</p><p class="small-note">This demo replays connected artifacts. It does not submit new model calls or run database analysis.</p>','AUTOMATION PROCESS')));
-    document.querySelectorAll('[data-input-design]').forEach(b=>b.addEventListener('click',()=>showDialog('The study design passed to Planning',rawOutput(D.outputs.strategy.text,'Strategy Agent output'),'STRATEGY OUTPUT · PLANNING INPUT')));
+    document.querySelectorAll('[data-input-design]').forEach(b=>b.addEventListener('click',()=>showDialog('The study design passed to Planning',rawOutput(D.outputs[studyDesignKey()].text,'Strategy Agent output'),'STRATEGY OUTPUT · PLANNING INPUT')));
     if($('generateStrategy'))$('generateStrategy').addEventListener('click',runStrategyGeneration);
     document.querySelectorAll('[data-nhis-details]').forEach(button=>button.addEventListener('click',()=>nhisDetails(button.dataset.nhisDetails)));
     bindPipeline();
   }
   function primaryForArtifact(id){return id==='strategy'||id==='components'?'question':/^analysis/.test(id)?'analysis':id==='results'?'results':'cohort';}
-  return{render,bind,resetAll,stagePath,reached:()=>state.started?state.reached:0,paths,names,primaryForArtifact,question:()=>state.question,started:()=>state.started};
+  return{render,renderProgress,renderGuideNavigation,bind,resetAll,stagePath,paths,names,primaryForArtifact,question:()=>state.question,started:()=>state.started};
 };

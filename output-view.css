@@ -17,7 +17,3 @@
   .recorded-output { padding: 16px; font-size: 0.9rem; }
   .reference-outputs { grid-template-columns: 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); }
 }
-
-.run-output{flex:1;min-height:0;display:flex;flex-direction:column;animation:run-in .35s ease-out}
-.run-output:empty{display:none}
-.run-output .recorded-output{flex:1;min-height:0;margin:0;border:1px solid #eee7f4;border-radius:8px}

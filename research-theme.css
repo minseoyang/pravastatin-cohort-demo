@@ -1,0 +1,766 @@
+/* Shared colors for the study walkthrough, artifacts, and comparisons. */
+:root {
+  --deep-teal: #1F4654;
+  --muted-teal: #7FB2BF;
+  --mist-blue: #A6C9D2;
+  --pale-blue: #CCE0E6;
+  --ice-blue: #F2F7F9;
+  --ink: var(--deep-teal);
+  --muted: color-mix(in srgb, var(--deep-teal) 75%, var(--muted-teal));
+  --line: var(--pale-blue);
+  --accent-ink: color-mix(in srgb, var(--deep-teal) 83%, var(--muted-teal));
+  --accent-line: var(--muted-teal);
+  --accent-soft: var(--pale-blue);
+  --chart-local: color-mix(in srgb, var(--deep-teal) 62%, var(--muted-teal));
+  --purple: var(--ink);
+  --purple-soft: var(--accent-soft);
+  --panel: #fff;
+  --canvas: var(--ice-blue);
+  --surface-soft: var(--ice-blue);
+  --action: var(--deep-teal);
+  --radius-panel: 16px;
+  --radius-control: 10px;
+  --shadow-panel: 0 8px 24px color-mix(in srgb, var(--deep-teal) 8%, transparent);
+  --shadow-action: 0 5px 12px color-mix(in srgb, var(--deep-teal) 19%, transparent);
+  --page-padding: clamp(22px, 3.5vw, 64px);
+  --max-content-width: 1400px;
+  background: var(--canvas);
+  color: var(--ink);
+}
+body { background: var(--canvas); }
+.site-header {
+  display: flex;
+  padding-inline: max(var(--page-padding), calc((100% - var(--max-content-width)) / 2));
+  background: var(--deep-teal);
+  border-color: var(--deep-teal);
+}
+.site-brand { color: var(--ice-blue); font-weight: 750; letter-spacing: -.022em; }
+.site-brand svg { color: var(--mist-blue); }
+.site-header .icon-button {
+  border: 1px solid color-mix(in srgb, var(--mist-blue) 60%, transparent);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ice-blue);
+}
+.site-brand:focus-visible { outline-color: var(--mist-blue); }
+#main {
+  max-width: calc(var(--max-content-width) + var(--page-padding) * 2);
+  padding-inline: var(--page-padding);
+}
+.panel {
+  background: var(--panel);
+  border-color: var(--line);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+.screen-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(1.5rem, 3vw, 2.35rem);
+  font-weight: 750;
+  letter-spacing: -.035em;
+}
+.screen-heading p { color: var(--muted); font-size: .95rem; }
+.eyebrow { color: var(--accent-ink); font-weight: 700; letter-spacing: .095em; }
+.small-note, .stage-position { color: var(--muted); }
+.button, .select-control, .custom-field {
+  border-color: var(--line);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+}
+.button { background: var(--panel); font-weight: 650; }
+.button.quiet { background: var(--panel); }
+.button:hover, .site-header .icon-button:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-ink);
+}
+.button.primary, .button.primary:hover {
+  background: var(--action);
+  border-color: transparent;
+  color: var(--ice-blue);
+  box-shadow: var(--shadow-action);
+}
+.button.primary:hover:not(:disabled) { filter: brightness(.94); }
+.button.primary:disabled, .button.primary:disabled:hover {
+  background: var(--pale-blue);
+  border-color: var(--line);
+  color: var(--muted);
+  opacity: 1;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.select-control { outline-offset: 2px; }
+.custom-field { background: var(--surface-soft); }
+.custom-field:focus { border-color: var(--ink); background: var(--panel); }
+:is(.button, .select-control, .icon-button, .output-file, .recorded-output):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.text-button { color: var(--accent-ink); }
+.site-header .icon-button:focus-visible { outline-color: var(--mist-blue); }
+.scroll-region { scrollbar-color: var(--muted-teal) transparent; }
+::selection { color: var(--ink); background: var(--mist-blue); }
+
+/* Introduction and the shared agent strip. */
+.intro-hero {
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 83% 32%, var(--mist-blue), transparent 57%),
+    linear-gradient(108deg, var(--ice-blue) 28%, var(--pale-blue));
+}
+.intro-hero-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  width: var(--intro-content-width);
+  min-height: clamp(310px, 46dvh, 490px);
+  margin-inline: auto;
+}
+.intro-hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding-block: clamp(24px, 5dvh, 58px);
+  z-index: 1;
+}
+.intro-hero h1 { font-size: clamp(1.9rem, 4.15vw, 4rem); font-weight: 780; }
+.intro-hero h1 span { display: block; color: var(--muted); }
+.intro-hero p { max-width: 44ch; margin: 15px 0 20px; }
+.intro-hero-visual {
+  position: relative;
+  min-width: 0;
+}
+.intro-hero-visual img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: grayscale(1) sepia(.58) hue-rotate(145deg) saturate(.72);
+  mix-blend-mode: multiply;
+  mask-image: radial-gradient(ellipse 50% 56%, #000 61%, transparent);
+}
+
+/* Study gallery, Strategy, Planning and Coding. */
+.study-card-grid { gap: clamp(12px, 2vw, 24px); }
+.study-card {
+  border-color: var(--line);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+.study-card[href]:hover { border-color: var(--accent-line); box-shadow: var(--shadow-action); }
+.study-card:focus-visible { outline-color: var(--ink); }
+.study-card-media { margin: 10px 10px 0; border-radius: 11px; background: var(--surface-soft); }
+.study-card-media img { filter: saturate(.72); }
+.study-card h2 { color: var(--ink); font-weight: 740; }
+.study-card-question { color: var(--ink); }
+.study-question-label { color: var(--accent-ink); }
+.study-card-description { color: var(--muted); }
+.study-card-cta { color: var(--accent-ink); border-color: var(--line); }
+.study-card-cta > span:last-child { color: var(--muted); }
+.empty-study-card { background: var(--surface-soft); box-shadow: none; }
+.strategy-layout { grid-template-columns: minmax(235px, .75fr) minmax(0, 1.75fr); gap: 18px; }
+.question-input-card { background: var(--surface-soft); }
+.question-input-card .eyebrow, .automation-panel-header .eyebrow { color: var(--accent-ink); }
+.user-question-label { color: var(--ink); }
+.user-question-field { color: var(--ink); background: var(--panel); border-color: var(--line); }
+.automation-panel-header, .pipeline-plan > header {
+  border-color: var(--line);
+  background: var(--surface-soft);
+}
+.automation-panel-header h2, .generation-wait p { color: var(--ink); }
+.automation-source { background: var(--surface-soft); border-color: var(--line); color: var(--muted); }
+.run-agent { color: var(--ink); font-weight: 730; }
+.run-status, .run-file, .run-list li { color: var(--ink); border-color: var(--line); }
+.run-state, .run-index { color: var(--muted); }
+.run-badge { background: var(--accent-soft); color: var(--ink); }
+.run-badge.done { background: var(--mist-blue); }
+.run-badge.done, .run-state.done, .run-check { color: var(--ink); }
+.run-spinner { border-color: var(--pale-blue); border-top-color: var(--ink); }
+.pipeline-final .code-output {
+  background: linear-gradient(135deg, var(--surface-soft), var(--pale-blue));
+  border-color: var(--mist-blue);
+}
+.code-summary .eyebrow, .code-output-head .eyebrow { color: var(--accent-ink); }
+.script-name, .code-output-head strong { color: var(--ink); }
+.artifact-next-use, .code-output-head > span.artifact-metadata,
+.code-output-block .output-local-note, .pipeline-final .step-evidence { color: var(--muted); }
+.code-output-block + .code-output-block { border-color: var(--accent-line); }
+.output-preview, .output-figure { border-color: var(--line); }
+.recorded-output, .code-view { background: var(--surface-soft); color: var(--ink); }
+
+/* Data table, Results, and artifact dialogs. */
+.dataset-toolbar { border-color: var(--line); background: var(--surface-soft); }
+.dataset-range { color: var(--muted); }
+.dataset-table thead th, .dataset-table thead .row-no, .output-preview th,
+.xl-grid thead th, .xl-grid tbody th { background: var(--pale-blue); color: var(--ink); }
+.dataset-grid tbody th.row-no { background: var(--surface-soft); border-color: var(--line); color: var(--muted); }
+.dataset-table table, .output-preview table, .xl-grid { color: var(--ink); }
+.dataset-table thead th, .output-preview th,
+.dataset-table td, .output-preview td, .xl-grid td, .xl-grid th { border-color: var(--line); }
+.dataset-privacy-note span { border-color: var(--accent-line); box-shadow: var(--shadow-panel); }
+.file-bar, .file-foot, .result-provenance, .img-viewer { background: var(--surface-soft); border-color: var(--line); }
+.file-bar strong, .file-foot, .result-provenance { color: var(--ink); }
+.output-file { color: var(--ink); border-radius: var(--radius-control); }
+.output-file:hover { background: var(--surface-soft); }
+.output-file.active { color: var(--ink); background: var(--pale-blue); border-color: var(--accent-line); }
+.file-size { color: var(--muted); }
+.file-badge { background: var(--deep-teal); color: var(--ice-blue); }
+.file-badge.xlsx { background: var(--mist-blue); color: var(--ink); }
+.file-badge.png { background: var(--muted-teal); color: var(--ink); }
+.xl-tabs { border-color: var(--line); background: var(--surface-soft); }
+.xl-tab { border-color: var(--line); color: var(--ink); }
+.xl-tab:hover { background: var(--pale-blue); }
+.xl-tab.active { background: var(--panel); color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
+dialog { color: var(--ink); border-color: var(--line); border-radius: var(--radius-panel); }
+dialog::backdrop { background: color-mix(in srgb, var(--deep-teal) 37%, transparent); }
+.dialog-header { background: var(--surface-soft); border-color: var(--line); }
+.dialog-header h2, .dialog-body h3, .dialog-body strong { color: var(--ink); }
+.dialog-body, .dialog-body code { color: var(--ink); }
+.dialog-body th, .dialog-body td { border-color: var(--line); }
+.dialog-body th { color: var(--ink); background: var(--surface-soft); }
+.dialog-header .icon-button { color: var(--ink); }
+.toast { border-color: var(--accent-line); background: var(--deep-teal); color: var(--ice-blue); }
+
+/* Manual question entry and the artifact library. */
+.question-field-area textarea, .study-preview .question-field-area textarea[readonly] {
+  background: var(--surface-soft);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.question-submit, .question-error, .empty-icon, .artifact-nav-icon {
+  background: var(--surface-soft);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.question-error { border-left-color: var(--ink); }
+.question-form-title h2, .question-promise h2, .empty-state h2,
+.artifact-nav-item strong, .artifact-nav-item .artifact-nav-icon { color: var(--ink); }
+.question-field-area label, .question-field-note, .question-promise p,
+.question-submit p, .question-bottom, .preset-card dt, .preset-card dd,
+.preset-card .small-note, .empty-state p, .artifact-nav-item small,
+.artifact-sidebar .eyebrow { color: var(--muted); }
+.question-bottom span::after { background: var(--line); }
+.tag { background: var(--accent-soft); border-color: var(--line); color: var(--ink); }
+.artifact-nav-item:hover, .artifact-nav-item.active, .plan-item.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.artifact-nav-item .artifact-nav-icon { background: var(--surface-soft); }
+
+/* Comparisons are drawn in the same palette as their surrounding interface. */
+.hub-card:hover, .hub-info, .insight, .segmented, .outcome-card.execution {
+  background: var(--surface-soft);
+  border-color: var(--line);
+}
+.hub-card .card-symbol, .segmented button.selected { background: var(--pale-blue); color: var(--ink); }
+.segmented button.selected { box-shadow: none; }
+.hub-card h2, .hub-info h2, .context-panel h2, .context-value, .level-item strong,
+.level-item.l3 strong, .outcome-card h2, .outcome-value, .outcome-card.execution .outcome-value,
+.comparison-table tbody th { color: var(--ink); }
+.hub-card p, .hub-info p, .hub-card .card-meta, .context-panel p, .chart-legend,
+.chart-footnote, .chart-toolbar .chart-unit, .condition-definition span,
+.segmented button, .heatmap th, .outcome-card p, .comparison-table td { color: var(--muted); }
+.chart-toolbar, .condition-definition, .comparison-table th, .comparison-table td { border-color: var(--line); }
+.comparison-table thead th { background: var(--surface-soft); color: var(--ink); }
+.context-rule { background: var(--line); }
+.insight { border-left-color: var(--accent-line); }
+.chart-legend i { background: var(--ink); }
+.chart-legend i.local {
+  background: repeating-linear-gradient(90deg, var(--chart-local) 0 4px, transparent 4px 6px);
+}
+.heatmap td.level-none, .heatmap td.level-0, .heatmap td.level-1, .heatmap td.level-2 {
+  color: var(--ink);
+}
+.heatmap td.level-none { background: var(--panel); }
+.heatmap td.level-0 { background: var(--ice-blue); }
+.heatmap td.level-1 { background: var(--pale-blue); }
+.heatmap td.level-2 { background: var(--mist-blue); }
+.heatmap td.level-3 { background: var(--deep-teal); color: var(--ice-blue); }
+.outcome-track i { background: var(--muted-teal); border-color: var(--muted-teal); }
+.outcome-track .empty { border-color: var(--mist-blue); }
+
+@media (max-width: 760px) {
+  :root { --page-padding: 12px; }
+  .intro-hero-inner { grid-template-columns: minmax(0, 1fr) minmax(0, .8fr); min-height: 280px; }
+  .intro-hero h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); }
+  .intro-hero p { margin: 10px 0 13px; font-size: .95rem; }
+  .strategy-layout { grid-template-columns: 1fr; }
+  .study-card-media { margin: 8px 8px 0; }
+}
+@media (max-width: 520px) {
+  .intro-hero {
+    background: linear-gradient(158deg, var(--ice-blue) 24%, var(--pale-blue) 63%, var(--mist-blue));
+  }
+  .intro-hero-inner { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 175px; }
+  .intro-hero-copy { padding-block: 22px 4px; }
+}
+
+/* Flat selection states: color change only, no inset bars or lifted shadows. */
+.system-feature-choices button,
+.agent-flow-step,
+.xl-tab,
+.output-file,
+.artifact-nav-item,
+.plan-item,
+.plan-json-step,
+.cohort-choice,
+.study-card {
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+.system-feature-choices button:hover:not([aria-pressed="true"]) {
+  background: var(--mist-blue);
+  border-color: transparent;
+  color: var(--ink);
+}
+.agent-flow-step:is(a, button):hover:not([aria-current="step"], [aria-pressed="true"], [aria-expanded="true"]) {
+  background: var(--pale-blue);
+  border-color: transparent;
+  color: var(--ink);
+}
+.system-feature-choices button[aria-pressed="true"],
+.agent-flow-step.agent-flow-step:is([aria-current="step"], [aria-pressed="true"]),
+.agent-flow-step.agent-flow-step:is([aria-current="step"], [aria-pressed="true"]):hover,
+.workflow-preview-item .agent-flow-step[aria-expanded="true"],
+.workflow-preview-item .agent-flow-step[aria-expanded="true"]:hover {
+  background: var(--deep-teal);
+  border-color: var(--deep-teal);
+  color: #fff;
+  box-shadow: none;
+}
+.agent-flow-step:is([aria-current="step"], [aria-pressed="true"], [aria-expanded="true"]) :is(svg, small, .agent-flow-label) { color: #fff; }
+.agent-flow-step:is([aria-current="step"], [aria-pressed="true"], [aria-expanded="true"]) .workflow-disclosure { border-color: #fff; }
+.xl-tab.active,
+.workflow-map .workflow-map-current { box-shadow: none; }
+.xl-tab.active { background: var(--deep-teal); color: #fff; }
+.study-card[href]:hover { box-shadow: var(--shadow-panel); }
+
+/* How the system works: text beside a flat figure. */
+.system-feature-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  align-items: center;
+  gap: clamp(16px, 3vw, 40px);
+  max-width: none;
+  width: 100%;
+}
+.system-feature-figure {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+.system-feature-figure img { display: block; width: 100%; height: auto; }
+@media (max-width: 900px) {
+  .system-feature-detail { grid-template-columns: 1fr; }
+}
+
+/* How the system works: choice cards that fill the column. */
+.system-features > header { display: flex; flex-direction: column; }
+.system-features > header .system-feature-choices {
+  flex: 1;
+  grid-auto-rows: 1fr;
+  gap: 8px;
+}
+.system-feature-choices button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: rgba(255,255,255,.72);
+  color: var(--ink);
+}
+.feature-num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--pale-blue);
+  color: var(--ink);
+  font-size: .74rem;
+  font-weight: 750;
+  transition: background-color .18s ease, color .18s ease;
+}
+.feature-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.feature-text strong { font-size: .9rem; font-weight: 700; }
+.feature-text small { color: var(--muted); font-size: .74rem; font-weight: 550; }
+.feature-arrow {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border: solid currentColor;
+  border-width: 1.6px 1.6px 0 0;
+  transform: rotate(45deg);
+  opacity: .45;
+  transition: transform .18s ease, opacity .18s ease;
+}
+.system-feature-choices button:hover:not([aria-pressed="true"]) {
+  background: #fff;
+  border-color: var(--accent-line);
+}
+.system-feature-choices button:hover .feature-arrow { opacity: 1; transform: translateX(3px) rotate(45deg); }
+.system-feature-choices button:hover:not([aria-pressed="true"]) .feature-num { background: var(--deep-teal); color: #fff; }
+.system-feature-choices button[aria-pressed="true"] .feature-num { background: rgba(255,255,255,.16); color: #fff; }
+.system-feature-choices button[aria-pressed="true"] .feature-text small { color: var(--pale-blue); }
+.system-feature-choices button[aria-pressed="true"] .feature-arrow { opacity: 1; }
+@media (max-width: 760px) {
+  .feature-text small, .feature-arrow { display: none; }
+  .feature-num { width: 24px; height: 24px; }
+}
+
+/* Workflow guide: information level and model assignment from the paper. */
+.workflow-guide-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+.workflow-guide-facts > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+.workflow-guide-facts dt {
+  flex: none;
+  color: var(--accent-ink);
+  font-size: .66rem;
+  font-weight: 750;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.workflow-guide-facts dd { margin: 0; color: var(--ink); font-size: .84rem; line-height: 1.4; }
+
+/* Agent screens: always-visible description of how the step works. */
+.screen-heading { flex-wrap: wrap; row-gap: 12px; }
+.agent-brief {
+  flex: 1 0 100%;
+  order: 3;
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 2fr) minmax(0, .9fr);
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.agent-brief > div { padding: 11px 16px; min-width: 0; }
+.agent-brief > div + div { border-left: 1px solid var(--line); }
+.agent-brief > div:nth-child(2) { background: var(--surface-soft); }
+.agent-brief dt {
+  margin-bottom: 3px;
+  color: var(--accent-ink);
+  font-size: .66rem;
+  font-weight: 750;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.agent-brief dd { margin: 0; color: var(--ink); font-size: .86rem; line-height: 1.45; }
+@media (max-width: 900px) {
+  .agent-brief { grid-template-columns: 1fr; }
+  .agent-brief > div + div { border-left: 0; border-top: 1px solid var(--line); }
+}
+
+/* Flow heading: the current task inside the stage's agent flow. */
+.flow-heading { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; align-items: stretch; gap: 10px; width: 100%; }
+.flow-meta { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 30px; }
+.flow-meta p { margin: 0; color: var(--muted); font-size: .92rem; }
+.task-flow {
+  display: flex;
+  width: 100%;
+  gap: 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.task-node {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 9px 13px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+}
+.task-node.is-io { flex: .8 1 0; background: var(--surface-soft); }
+.task-node.is-local { border-style: dashed; border-color: var(--accent-line); }
+.task-node + .task-node::before {
+  content: "→";
+  position: absolute;
+  inset-inline-start: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent-line);
+  font-size: 1rem;
+}
+.task-node-tag {
+  color: var(--muted);
+  font-size: .62rem;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.task-node strong { font-size: .92rem; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-node small { color: var(--muted); font-size: .74rem; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-node.is-done { border-color: var(--accent-line); }
+.task-node.is-done .task-node-tag::before { content: "✓ "; }
+.task-node.is-next { opacity: .62; }
+.task-node.is-current { background: var(--deep-teal); border-color: var(--deep-teal); color: #fff; opacity: 1; }
+.task-node.is-current .task-node-tag { color: var(--mist-blue); }
+.task-node.is-current small { color: var(--pale-blue); }
+@media (max-width: 900px) {
+  .task-flow { overflow-x: auto; gap: 22px; }
+  .task-node { flex: 0 0 150px; }
+}
+
+/* Coding Agent second screen: script list + inline code viewer. */
+.pipeline-final.script-workspace { grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); }
+.script-list { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.script-list > header { display: grid; gap: 2px; padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.script-list > header strong { color: var(--ink); font-size: 1rem; }
+.script-list ol { list-style: none; margin: 0; padding: 6px; overflow: auto; min-height: 0; flex: 1; }
+.script-list button {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+.script-list button:hover { background: var(--surface-soft); }
+.script-list button[aria-current="true"] { background: var(--deep-teal); color: #fff; }
+.script-index { flex: none; width: 24px; padding-top: 1px; color: var(--muted); font: 700 .74rem/1.4 Consolas, monospace; }
+.script-meta { display: grid; gap: 1px; min-width: 0; }
+.script-meta strong { font-size: .84rem; font-weight: 650; line-height: 1.3; }
+.script-meta small { color: var(--muted); font: .72rem/1.3 Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.script-list button[aria-current="true"] :is(.script-index, small) { color: var(--pale-blue); }
+.script-viewer { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.script-viewer-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 14px 20px 12px; border-bottom: 1px solid var(--line); }
+.script-viewer-head > div:first-child { min-width: 0; }
+.script-viewer-head h2 { margin: 2px 0 2px; color: var(--ink); font-size: 1.15rem; overflow-wrap: anywhere; }
+.script-viewer-head .script-name { margin: 0; color: var(--muted); font: .8rem Consolas, monospace; }
+.script-tabs { flex: none; display: flex; gap: 4px; padding: 3px; border-radius: 9px; background: var(--surface-soft); }
+.script-tabs button { padding: 6px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-family: inherit; font-size: .8rem; font-weight: 650; line-height: 1.2; cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+.script-tabs button:hover { color: var(--ink); background: var(--pale-blue); }
+.script-tabs button[aria-pressed="true"] { background: var(--deep-teal); color: #fff; }
+.script-viewer-body { flex: 1; min-height: 0; overflow: auto; }
+.script-code { margin: 0; border: 0; min-height: 100%; counter-reset: line; overflow: visible; }
+.script-code .code-line { counter-increment: line; }
+.script-code .code-line::before { content: counter(line); display: inline-block; width: 3ch; margin-right: 16px; color: var(--accent-line); text-align: right; user-select: none; }
+.script-outputs { padding: 16px 20px; overflow: visible; }
+.script-task { padding: 18px 20px; display: grid; gap: 8px; justify-items: start; }
+.script-task h3 { margin: 0; color: var(--ink); }
+.script-task .step-inputs { width: 100%; }
+.script-empty { padding: 20px; }
+.run-list li.run-open { cursor: pointer; border-radius: 6px; transition: background-color .15s ease; }
+.run-list li.run-open:hover { background: var(--surface-soft); }
+.run-list li.run-open .run-file { text-decoration: underline; text-decoration-color: var(--accent-line); text-underline-offset: 3px; }
+@media (max-width: 760px) {
+  .pipeline-final.script-workspace { grid-template-columns: 1fr; grid-template-rows: minmax(0, .4fr) minmax(0, 1fr); }
+  .script-viewer-head { flex-wrap: wrap; }
+}
+
+/* Analysis start: study design and cohort choice side by side. */
+.analysis-inputs { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px; min-height: 0; }
+.analysis-inputs > .output-panel { min-height: 0; }
+.analysis-inputs .analysis-dataset-picker { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.analysis-inputs .analysis-dataset-picker legend { margin-top: 4px; }
+.analysis-inputs-note { margin: auto 0 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; line-height: 1.45; }
+@media (max-width: 900px) { .analysis-inputs { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } }
+
+/* More room for outputs: no subtitle line, compact flow, tighter gaps. */
+.automation-screen { gap: 12px; }
+.flow-heading { gap: 6px; }
+.flow-meta { min-height: 0; justify-content: flex-end; }
+.task-flow { gap: 22px; }
+.task-node {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 7px;
+  row-gap: 0;
+  padding: 7px 12px;
+}
+.task-node + .task-node::before { inset-inline-start: -17px; }
+.task-node strong { font-size: .88rem; }
+.task-node small { flex-basis: 100%; font-size: .72rem; }
+.recorded-plan.design-first { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+.recorded-plan.design-first > .output-panel { min-height: 0; }
+@media (max-width: 760px) { .recorded-plan.design-first { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); } }
+
+/* Coding and local execution run together: fill both, keep the dashed local cue. */
+.task-node.is-local.is-current { border-style: dashed; border-color: var(--mist-blue); }
+
+/* Study cards use flat illustrations in the site palette. */
+.study-card-media img[src$=".svg"] { filter: none; }
+
+/* Highlight color: a warm amber accent for "act here" and "you are here" cues. */
+:root {
+  --highlight: #F2B24C;
+  --highlight-strong: #E39E2D;
+  --highlight-soft: #FDF0D8;
+  --highlight-ink: #7A4E08;
+}
+/* 1. Primary actions */
+.button.primary, .button.primary:hover {
+  background: var(--highlight);
+  color: var(--deep-teal);
+  box-shadow: none;
+}
+.button.primary:hover:not(:disabled) { filter: none; background: var(--highlight-strong); }
+/* 2. Current task in the flow */
+.task-node.is-current .task-node-tag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--highlight);
+  color: var(--deep-teal);
+}
+/* 3. Selected items: a small amber marker, the fill stays teal */
+.system-feature-choices button[aria-pressed="true"] .feature-num { background: var(--highlight); color: var(--deep-teal); }
+.agent-flow-step:is([aria-current="step"], [aria-pressed="true"]) svg { color: var(--highlight) !important; }
+.script-list button[aria-current="true"] .script-index { color: var(--highlight); }
+/* 4. Progress */
+.run-spinner { border-top-color: var(--highlight-strong); }
+.run-badge.done { background: var(--highlight-soft); color: var(--highlight-ink); }
+/* 5. Hero emphasis */
+.intro-hero h1 span { color: var(--deep-teal); background: linear-gradient(transparent 62%, var(--highlight-soft) 62%); width: fit-content; }
+
+/* ===== Redesign: teal for brand and selection, lime for action, neutral grays for structure. ===== */
+:root {
+  --highlight: #B8D45A;
+  --highlight-strong: #A4C243;
+  --highlight-soft: #EEF5D6;
+  --highlight-ink: #4E5E12;
+  --gray-50: #F7F8F8;
+  --gray-100: #EFF1F1;
+  --gray-150: #E6E9EA;
+  --gray-200: #DADEDF;
+  --gray-400: #A2AAAD;
+  --gray-600: #626C70;
+  --gray-800: #2F3739;
+  --canvas: var(--gray-50);
+  --surface-soft: var(--gray-100);
+  --line: var(--gray-200);
+  --muted: var(--gray-600);
+  --accent-line: var(--muted-teal);
+}
+body, .site-shell { background: var(--canvas); }
+
+/* Hero: neutral wash instead of blue on blue, with a soft lime glow */
+.intro-hero { background: linear-gradient(115deg, var(--gray-50) 0%, var(--gray-100) 55%, #E3EEF0 100%); }
+.intro-hero p { color: var(--gray-600); }
+
+/* How the system works: graphite side column for contrast */
+.system-features > header { background: var(--gray-800); border-right-color: var(--gray-800); }
+.system-features h2 { color: #fff; }
+.system-feature-choices button { background: rgba(255,255,255,.06); color: #E9EEEF; }
+.system-feature-choices button .feature-text small { color: var(--gray-400); }
+.feature-num { background: rgba(255,255,255,.1); color: #E9EEEF; }
+.system-feature-choices button:hover:not([aria-pressed="true"]) { background: rgba(255,255,255,.12); border-color: transparent; color: #fff; }
+.system-feature-choices button:hover:not([aria-pressed="true"]) .feature-num { background: rgba(255,255,255,.2); color: #fff; }
+.system-feature-choices button[aria-pressed="true"] { background: #fff; border-color: #fff; color: var(--deep-teal); }
+.system-feature-choices button[aria-pressed="true"] .feature-text small { color: var(--gray-600); }
+.system-feature-choices button[aria-pressed="true"] .feature-num { background: var(--highlight); color: var(--deep-teal); }
+.system-feature-figure { background: var(--gray-50); border: 1px solid var(--gray-150); }
+
+/* Workflow strip: neutral track, teal selection */
+.agent-flow { background: var(--gray-150); border-color: var(--gray-200); }
+.agent-flow-preview { background: #fff; }
+.agent-flow-step { color: var(--gray-800); }
+.agent-flow-step svg { color: var(--gray-600); }
+.agent-flow-step:is(a, button):hover:not([aria-current="step"], [aria-pressed="true"], [aria-expanded="true"]) { background: #fff; color: var(--deep-teal); }
+
+/* Task flow: gray for done/next, teal for now */
+.task-node { background: #fff; border-color: var(--gray-200); }
+.task-node.is-io { background: var(--gray-100); }
+.task-node.is-done { border-color: var(--gray-200); background: var(--gray-100); }
+.task-node.is-done .task-node-tag { color: var(--highlight-ink); }
+.task-node.is-next { opacity: 1; color: var(--gray-400); }
+.task-node.is-next small, .task-node.is-next .task-node-tag { color: var(--gray-400); }
+.task-node.is-local:not(.is-current) { border-color: var(--gray-400); }
+.task-node + .task-node::before { color: var(--gray-400); }
+
+/* Panels and outputs: white cards on a gray page, gray code surfaces */
+.panel { border-color: var(--gray-200); }
+.automation-panel-header, .pipeline-plan > header { background: #fff; border-color: var(--gray-150); }
+.recorded-output, .code-view { background: var(--gray-50); color: var(--gray-800); }
+.script-code .code-line::before { color: var(--gray-400); }
+.script-list > header, .script-viewer-head { border-color: var(--gray-150); }
+.script-list button:hover { background: var(--gray-100); }
+.script-tabs { background: var(--gray-100); }
+.script-tabs button:hover { background: var(--gray-150); }
+.code-output-block { border-color: var(--gray-200); }
+.output-local-note, .small-note { color: var(--gray-600); }
+
+/* Study cards: neutral frame, lime footer cue on hover */
+.study-card { border-color: var(--gray-200); }
+.study-card-media { background: var(--gray-100); }
+.study-card[href]:hover { border-color: var(--highlight-strong); }
+
+/* Secondary buttons stay quiet gray */
+.button.quiet { background: #fff; border-color: var(--gray-200); color: var(--gray-800); }
+.button.quiet:hover { background: var(--gray-100); border-color: var(--gray-400); }
+
+/* Glass top bar: the header floats over the page, which shows through a frosted pane. */
+.site-shell { position: relative; grid-template-rows: minmax(0, 1fr) var(--footer, 0); }
+#main { grid-row: 1; padding-top: calc(var(--header) + 20px); }
+.site-header {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: var(--header);
+  z-index: 20;
+  background: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.48));
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
+  border-bottom: 1px solid rgba(255,255,255,.7);
+  box-shadow: 0 1px 0 rgba(47,55,57,.06), inset 0 -1px 0 rgba(47,55,57,.05);
+}
+.site-brand { color: var(--deep-teal); }
+.site-brand svg { color: var(--highlight-ink); }
+.site-header .icon-button { color: var(--deep-teal); border-color: var(--gray-200); }
+.site-brand:focus-visible, .site-header .icon-button:focus-visible { outline-color: var(--deep-teal); }
+.intro-page .intro-hero { padding-top: var(--header); }
+.button.primary:disabled, .button.primary:disabled:hover { background: var(--gray-150); border-color: var(--gray-200); color: var(--gray-400); }
+
+/* Page background: a soft mesh of the site's pale tones (mist teal, lime, warm gray). */
+body, .site-shell {
+  background:
+    radial-gradient(1100px 680px at 6% -8%, rgba(204, 224, 230, .78), transparent 62%),
+    radial-gradient(900px 620px at 104% 2%, rgba(238, 245, 214, .95), transparent 58%),
+    radial-gradient(1000px 760px at 88% 112%, rgba(166, 201, 210, .38), transparent 62%),
+    radial-gradient(820px 620px at -4% 104%, rgba(238, 245, 214, .55), transparent 60%),
+    linear-gradient(160deg, #F7F9F9 0%, #F1F4F3 100%);
+  background-attachment: fixed;
+}
+#main { background: transparent; }
+.intro-hero { background: transparent; }
+.agent-flow { background: rgba(230, 233, 234, .72); }
+.empty-study-card { background: rgba(255, 255, 255, .35); border-style: dashed; }
+
+/* Hero illustration: keep its own colors; fade the image's pale backdrop into the page. */
+.intro-hero-visual img.hero-flow-img {
+  filter: none;
+  mix-blend-mode: multiply;
+  mask-image: radial-gradient(ellipse 52% 54% at 50% 50%, #000 70%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 52% 54% at 50% 50%, #000 70%, transparent 100%);
+}
