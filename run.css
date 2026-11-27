@@ -221,7 +221,17 @@ pre.recorded-output.is-typing { scroll-behavior: auto; }
   #main.with-workflow :is(.dataset-table, .xl-sheet) { max-height: 70vh; overflow: auto; min-width: 0; width: 100%; }
   #main.with-workflow .dataset-grid { min-width: 0; width: 100%; }
   /* The Planning input repeats the protocol already shown in full on the Strategy page: keep it short so the plan is close by. */
-  #main.with-workflow .recorded-plan > .output-panel:first-child .scroll-region { max-height: 40vh; overflow-y: auto; }
+  #main.with-workflow .plan-input-panel:not(.is-open) pre.recorded-output {
+    max-height: 34vh; overflow: hidden;
+    -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent);
+  }
+  .output-panel .plan-input-more {
+    display: block; width: calc(100% - 28px); margin: 6px 14px 12px; padding: 9px 12px;
+    border: 1px solid var(--line); border-radius: 9px; background: var(--panel);
+    color: var(--deep-teal); font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer;
+  }
+  /* Tables: no inner vertical scroll (a vertical swipe moves the page); sideways scroll stays for the many columns. */
+  #main.with-workflow :is(.dataset-table, .xl-sheet) { max-height: none; overflow-y: visible; }
   #main.with-workflow .output-panel, #main.with-workflow .script-viewer { overflow: visible; }
 }
 @media (max-width: 760px) {
@@ -238,9 +248,23 @@ pre.recorded-output.is-typing { scroll-behavior: auto; }
   min-width: 1100px;
 }
 @media (max-width: 760px) {
-  /* Coding pages: about five scripts visible, the rest scroll inside the list. */
+  /* Coding pages: no scroll boxes inside the page, so a swipe anywhere moves the page.
+     The list shows five scripts with a "Show all" button; while running, the latest five. */
   #main.with-workflow .script-list .scroll-region,
-  #main.with-workflow #codeList { max-height: 182px; overflow-y: auto; }
+  #main.with-workflow #codeList { max-height: none; overflow: visible; }
+  .script-list:not(.is-open) .scroll-region > li:nth-child(n+6) { display: none; }
+  #codeList > li:nth-last-child(n+6) { display: none; }
+  .script-list .script-more {
+    display: block; width: calc(100% - 20px); margin: 4px 10px 10px; padding: 9px 12px;
+    border: 1px solid var(--line); border-radius: 9px; background: var(--panel);
+    color: var(--deep-teal); font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer;
+  }
+  /* Code wraps instead of scrolling sideways; wrapped lines indent under the code, not the line number. */
+  #main.with-workflow .script-viewer-body { overflow: visible; }
+  #main.with-workflow .script-code { white-space: pre-wrap; overflow: visible; }
+  #main.with-workflow .script-code code { display: flex; flex-direction: column; white-space: pre-wrap; }
+  #main.with-workflow .script-code .code-line { position: relative; display: block; padding-left: calc(3ch + 12px); overflow-wrap: anywhere; }
+  #main.with-workflow .script-code .code-line::before { position: absolute; left: 0; margin-right: 0; }
 }
 
 /* Overview on mobile: Agent workflow as a compact vertical timeline. */
@@ -295,4 +319,18 @@ pre.recorded-output.is-typing { scroll-behavior: auto; }
   }
   .journey-intro .journey-group:not(.g-prep):not(.g-analysis) .journey-node { grid-column: 2; }
   .journey-intro .journey-group:not(.g-prep):not(.g-analysis) .journey-step strong { font-size: .72rem; }
+}
+
+/* "Show all scripts" exists for phones only. */
+@media (min-width: 761px) { .script-list .script-more, .output-panel .plan-input-more { display: none; } }
+@media (max-width: 760px) {
+  /* Touch scrolling: a swipe on any text, script or table must pass on to the page.
+     (.scroll-region had overscroll-behavior: contain, which kept the swipe inside the box.) */
+  #main.with-workflow .scroll-region,
+  #main.with-workflow .scroll-region * { overscroll-behavior: auto; }
+  /* Text and code are not scroll boxes at all on phones; only wide tables scroll sideways. */
+  #main.with-workflow :is(pre.recorded-output, .script-viewer-body, .script-list .scroll-region, #codeList) { overflow: visible; }
+  #main.with-workflow pre.recorded-output { white-space: pre-wrap; overflow-wrap: anywhere; }
+  #main.with-workflow .plan-input-panel:not(.is-open) pre.recorded-output { overflow: hidden; }
+  #main.with-workflow { overscroll-behavior-y: auto; }
 }

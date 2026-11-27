@@ -660,9 +660,11 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   }
   function scriptTitle(P,s){return s.file==='step05_sepsis_icu_stays.py'?'Define the sepsis cohort':planTitle(P.planSteps[s.step-1],s.title||s.file);}
   function scriptList(P){
-    return `<nav class="panel script-list" aria-label="Generated scripts">
+    const open=P.run.listOpen||P.run.selected>5,more=P.steps.length>5;
+    return `<nav class="panel script-list${open?' is-open':''}" aria-label="Generated scripts">
       <header><strong>${P.steps.length} scripts</strong></header>
       <ol class="scroll-region">${P.steps.map(s=>`<li><button type="button" data-script-step="${s.step}" aria-current="${s.step===P.run.selected}"><span class="script-index">${pad(s.step)}</span><span class="script-meta"><strong class="script-file-only">${esc(s.file)}</strong></span></button></li>`).join('')}</ol>
+      ${more?`<button type="button" class="script-more" data-script-more="${P.id}" aria-expanded="${open}">${open?'Show fewer scripts ▴':`Show all ${P.steps.length} scripts ▾`}</button>`:''}
     </nav>`;
   }
   function scriptIO(P,s){
@@ -1207,6 +1209,18 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
     document.querySelectorAll('[data-nhis-details]').forEach(button=>button.addEventListener('click',()=>nhisDetails(button.dataset.nhisDetails)));
     bindPipeline();bindRun();
     document.querySelectorAll('[data-journey-go]').forEach(b=>b.addEventListener('click',()=>jumpTo(b.dataset.journeyGo)));
+    /* Planning input (phones): a short preview with a button, instead of a scroll box inside the page. */
+    document.querySelectorAll('.recorded-plan > .output-panel:first-child pre.recorded-output').forEach(pre=>{
+      const panel=pre.closest('.output-panel');panel.classList.add('plan-input-panel');
+      const b=document.createElement('button');b.type='button';b.className='plan-input-more';b.setAttribute('aria-expanded','false');b.textContent='Show full study design ▾';
+      b.addEventListener('click',()=>{const open=panel.classList.toggle('is-open');b.setAttribute('aria-expanded',String(open));b.textContent=open?'Show less ▴':'Show full study design ▾';if(!open)panel.scrollIntoView({block:'start'});});
+      pre.after(b);
+    });
+    document.querySelectorAll('[data-script-more]').forEach(b=>b.addEventListener('click',()=>{
+      const P=pipes()[b.dataset.scriptMore],nav=b.closest('.script-list'),open=!nav.classList.contains('is-open');
+      P.run.listOpen=open;nav.classList.toggle('is-open',open);b.setAttribute('aria-expanded',String(open));
+      b.textContent=open?'Show fewer scripts ▴':`Show all ${P.steps.length} scripts ▾`;
+    }));
     document.querySelector('[data-auto-toggle]')?.addEventListener('click',e=>{state.autoPaused=!state.autoPaused;e.currentTarget.textContent=state.autoPaused?'Resume auto-play':'Pause auto-play';autoStep();});
     if(state.handoffIn){state.handoffIn=false;const sc=document.querySelector('#main .screen');if(sc)sc.classList.add('handoff-in');}
     ioLabels();
