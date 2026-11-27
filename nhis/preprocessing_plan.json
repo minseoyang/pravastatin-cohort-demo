@@ -1,0 +1,197 @@
+[
+{
+"step_name": "Hypertension Diagnosis Extraction",
+"input": [
+"NHID_GY20_T1",
+"NHID_GY40_T1"
+],
+"operations description": "Join NHID_GY40_T1 to NHID_GY20_T1 on KEY_SEQ. Identify records where the leading three characters of SICK_SYM, MAIN_SICK, or SUB_SICK equal 'I10'. Aggregate to one row per PERSON_ID by selecting the minimum qualifying RECU_FR_DT as HYPERTENSION_DATE.",
+"output": "cohort_hypertension_candidates"
+},
+{
+"step_name": "Drug Prescription Extraction and Class Mapping",
+"input": [
+"NHID_GY60_T1",
+"NHID_GY20_T1",
+"doi"
+],
+"operations description": "Join NHID_GY60_T1 to NHID_GY20_T1 on KEY_SEQ. Join to doi by matching the first four characters of TRIM(CAST(NHID_GY60_T1.GNL_NM_CD AS VARCHAR)) to TRIM(CAST(doi.gnl_nm_cd_4 AS VARCHAR)). Retain CCB and DU prescriptions from 2002 through 2012. Aggregate to one row per PERSON_ID, RECU_FR_DT, and doi.group while preserving both exposure classes when they occur on the same date.",
+"output": "drug_prescriptions_mapped"
+},
+{
+"step_name": "Candidate Index Prescription Identification",
+"input": [
+"drug_prescriptions_mapped",
+"cohort_hypertension_candidates",
+"NHID_JK"
+],
+"operations description": "Join drug_prescriptions_mapped to cohort_hypertension_candidates on PERSON_ID and require HYPERTENSION_DATE to be on or before RECU_FR_DT. Join NHID_JK on PERSON_ID and require STND_Y to equal the calendar year of RECU_FR_DT and AGE_GROUP > 3. Retain candidate CCB or DU prescriptions dated from 2003 through 2012.",
+"output": "candidate_index_prescriptions"
+},
+{
+"step_name": "Candidate Baseline Eligibility Verification",
+"input": [
+"candidate_index_prescriptions",
+"NHID_JK"
+],
+"operations description": "For each candidate prescription, determine every calendar year overlapping the 365-day period from RECU_FR_DT minus 365 days through RECU_FR_DT minus 1 day. Retain only candidate prescriptions for which NHID_JK contains a matching STND_Y record for every required year.",
+"output": "candidate_index_coverage_verified"
+},
+{
+"step_name": "Candidate Prior Exposure Exclusion",
+"input": [
+"candidate_index_coverage_verified",
+"drug_prescriptions_mapped"
+],
+"operations description": "For each candidate prescription, exclude the candidate if the patient has any CCB or DU prescription during calendar year 2002 or during the 365-day period from candidate RECU_FR_DT minus 365 days through candidate RECU_FR_DT minus 1 day.",
+"output": "candidate_index_no_prior_exposure"
+},
+{
+"step_name": "Mixed Exposure Candidate Exclusion",
+"input": [
+"candidate_index_no_prior_exposure"
+],
+"operations description": "Group candidate prescriptions by PERSON_ID and RECU_FR_DT. Exclude candidate dates containing both doi.group = 1 and doi.group = 0, and retain candidate dates containing exactly one exposure class.",
+"output": "candidate_index_single_exposure"
+},
+{
+"step_name": "Index Date Identification and Exposure Classification",
+"input": [
+"candidate_index_single_exposure"
+],
+"operations description": "For each PERSON_ID, select the earliest remaining RECU_FR_DT as INDEX_DATE and retain the corresponding doi.group as EXPOSURE_GROUP. Aggregate to exactly one row per PERSON_ID.",
+"output": "eligible_index_dates"
+},
+{
+"step_name": "Baseline Fracture Record Identification",
+"input": [
+"eligible_index_dates",
+"NHID_GY20_T1",
+"NHID_GY40_T1"
+],
+"operations description": "Join eligible_index_dates to NHID_GY20_T1 on PERSON_ID and join NHID_GY40_T1 on KEY_SEQ. Identify claims occurring from INDEX_DATE minus 365 days through INDEX_DATE minus 1 day where SICK_SYM, MAIN_SICK, or SUB_SICK begins with S02, S07, S12, S22, S23, S42, S52, S62, S72, S82, or S92. Aggregate to one row per PERSON_ID with a baseline fracture indicator.",
+"output": "baseline_fracture_indicators"
+},
+{
+"step_name": "Baseline Fracture Exclusion",
+"input": [
+"eligible_index_dates",
+"baseline_fracture_indicators"
+],
+"operations description": "Exclude every PERSON_ID with a baseline fracture indicator equal to 1 and retain exactly one eligible index row per remaining PERSON_ID.",
+"output": "eligible_cohort_base"
+},
+{
+"step_name": "Baseline Demographic Extraction",
+"input": [
+"eligible_cohort_base",
+"NHID_JK"
+],
+"operations description": "Join NHID_JK to eligible_cohort_base on PERSON_ID and require STND_Y to equal the calendar year of INDEX_DATE. Retain SEX, AGE_GROUP, CTRB_PT_TYPE_CD, and DFAB_GRD_CD, with exactly one row per PERSON_ID.",
+"output": "baseline_demographics"
+},
+{
+"step_name": "Baseline Comorbidity Mapping",
+"input": [
+"eligible_cohort_base",
+"NHID_GY20_T1",
+"NHID_GY40_T1",
+"comor"
+],
+"operations description": "Join eligible_cohort_base to NHID_GY20_T1 on PERSON_ID and restrict claims to INDEX_DATE minus 365 days through INDEX_DATE minus 1 day. Join NHID_GY40_T1 on KEY_SEQ. Match each diagnosis column separately by comparing the leading comor.num characters of SICK_SYM, MAIN_SICK, or SUB_SICK with comor.code, and retain the corresponding comorbidity category.",
+"output": "baseline_comorbidities_mapped"
+},
+{
+"step_name": "Baseline Comorbidity Aggregation",
+"input": [
+"baseline_comorbidities_mapped"
+],
+"operations description": "Aggregate mapped comorbidities to exactly one row per PERSON_ID by creating the predefined binary comorbidity indicators, including cosick1 through cosick8 where defined by the comor mapping table.",
+"output": "baseline_comorbidities"
+},
+{
+"step_name": "Baseline Concomitant Medication Mapping",
+"input": [
+"eligible_cohort_base",
+"NHID_GY60_T1",
+"NHID_GY20_T1",
+"comedi"
+],
+"operations description": "Join eligible_cohort_base to NHID_GY20_T1 on PERSON_ID and restrict claims to INDEX_DATE minus 365 days through INDEX_DATE minus 1 day. Join NHID_GY60_T1 on KEY_SEQ. Match the first four characters of TRIM(CAST(NHID_GY60_T1.GNL_NM_CD AS VARCHAR)) to TRIM(CAST(comedi.code AS VARCHAR)) and retain the corresponding concomitant medication category.",
+"output": "baseline_concomitant_meds_mapped"
+},
+{
+"step_name": "Baseline Concomitant Medication Aggregation",
+"input": [
+"baseline_concomitant_meds_mapped"
+],
+"operations description": "Aggregate mapped concomitant medications to exactly one row per PERSON_ID by creating the predefined binary medication indicators, including codrug1 through codrug6 where defined by the comedi mapping table.",
+"output": "baseline_concomitant_meds"
+},
+{
+"step_name": "Baseline Healthcare Utilization Extraction",
+"input": [
+"eligible_cohort_base",
+"NHID_GY20_T1"
+],
+"operations description": "Join NHID_GY20_T1 to eligible_cohort_base on PERSON_ID. Restrict claims to INDEX_DATE minus 365 days through INDEX_DATE minus 1 day and count distinct KEY_SEQ values per PERSON_ID. Aggregate to one row per PERSON_ID.",
+"output": "baseline_healthcare_utilization"
+},
+{
+"step_name": "Post-index Fracture Record Identification",
+"input": [
+"eligible_cohort_base",
+"NHID_GY20_T1",
+"NHID_GY40_T1"
+],
+"operations description": "Join eligible_cohort_base to NHID_GY20_T1 on PERSON_ID and join NHID_GY40_T1 on KEY_SEQ. Identify claims occurring strictly after INDEX_DATE where SICK_SYM, MAIN_SICK, or SUB_SICK begins with S02, S07, S12, S22, S23, S42, S52, S62, S72, S82, or S92.",
+"output": "post_index_fracture_records"
+},
+{
+"step_name": "Incident Fracture Outcome Aggregation",
+"input": [
+"post_index_fracture_records"
+],
+"operations description": "Aggregate post-index fracture records to exactly one row per PERSON_ID by selecting the minimum qualifying RECU_FR_DT as FIRST_FRACTURE_DATE.",
+"output": "patient_fracture_outcomes"
+},
+{
+"step_name": "Censoring Date Calculation",
+"input": [
+"eligible_cohort_base",
+"NHID_JK"
+],
+"operations description": "For each PERSON_ID, derive the death censoring date from DTH_YM using the last day of the recorded death month, derive the eligibility end date as December 31 of the last consecutive STND_Y beginning with the index year, and calculate CENSORING_DATE as the earliest non-null date among the death censoring date, eligibility end date, and 2013-12-31.",
+"output": "patient_censoring_dates"
+},
+{
+"step_name": "Follow-up Outcome Determination",
+"input": [
+"eligible_cohort_base",
+"patient_fracture_outcomes",
+"patient_censoring_dates"
+],
+"operations description": "Left join patient_fracture_outcomes and patient_censoring_dates to eligible_cohort_base on PERSON_ID. Set FOLLOW_UP_END_DATE to the earlier of FIRST_FRACTURE_DATE and CENSORING_DATE. Set FRACTURE_INDICATOR to 1 only when FIRST_FRACTURE_DATE is non-null and occurs on or before CENSORING_DATE; otherwise set it to 0. Calculate FOLLOW_UP_DURATION as the number of days from INDEX_DATE to FOLLOW_UP_END_DATE.",
+"output": "patient_follow_up"
+},
+{
+"step_name": "Final Cohort Assembly",
+"input": [
+"patient_follow_up",
+"baseline_demographics",
+"baseline_comorbidities",
+"baseline_concomitant_meds",
+"baseline_healthcare_utilization"
+],
+"operations description": "Use patient_follow_up as the anchor table and LEFT JOIN all baseline covariate tables on PERSON_ID. Replace missing binary comorbidity and medication indicators and missing utilization counts with 0. Retain exactly one row per PERSON_ID with INDEX_DATE, EXPOSURE_GROUP, demographics, baseline covariates, FIRST_FRACTURE_DATE, CENSORING_DATE, FOLLOW_UP_END_DATE, FOLLOW_UP_DURATION, and FRACTURE_INDICATOR.",
+"output": "final_cohort"
+},
+{
+"step_name": "Final Cohort Export",
+"input": [
+"final_cohort"
+],
+"operations description": "Export final_cohort to cohort.csv with a header row without changing its patient-level structure.",
+"output": "cohort.csv"
+}
+]

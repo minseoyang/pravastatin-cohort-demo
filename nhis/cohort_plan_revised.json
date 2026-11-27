@@ -1,0 +1,62 @@
+[
+  {
+    "step_name": "Extract Drug Class Mapping",
+    "input": ["drug.doi"],
+    "operations": ["SELECT gnl_nm_cd_4, group FROM drug.doi WHERE group IN (0, 1)"],
+    "output": "nhid.drug_class_map"
+  },
+  {
+    "step_name": "Identify Candidate Index Dates",
+    "input": ["nhid.NHID_GY60_T1", "nhid.NHID_GY20_T1", "nhid.drug_class_map"],
+    "operations": ["SELECT g20.PERSON_ID, m.group AS drug_class, MIN(g60.RECU_FR_DT) AS index_date FROM nhid.NHID_GY60_T1 g60 JOIN nhid.NHID_GY20_T1 g20 ON g60.KEY_SEQ = g20.KEY_SEQ JOIN nhid.drug_class_map m ON LEFT(g60.GNL_NM_CD, 4) = m.gnl_nm_cd_4 WHERE g60.RECU_FR_DT BETWEEN 20030101 AND 20121231 GROUP BY g20.PERSON_ID, m.group"],
+    "output": "nhid.candidate_index_dates"
+  },
+  {
+    "step_name": "Verify Age Eligibility and Insurance Continuity",
+    "input": ["nhid.candidate_index_dates", "nhid.NHID_JK"],
+    "operations": ["SELECT c.*, j.STND_Y, j.AGE_GROUP, c.index_date - 365 AS baseline_start FROM nhid.candidate_index_dates c JOIN nhid.NHID_JK j ON c.PERSON_ID = j.PERSON_ID WHERE j.AGE_GROUP > 3 AND j.STND_Y IN (CAST(LEFT(c.index_date, 4) AS INTEGER), CAST(LEFT(CAST(c.index_date - 365 AS VARCHAR), 4) AS INTEGER))"],
+    "output": "nhid.continuous_eligible_patients"
+  },
+  {
+    "step_name": "Apply Hypertension Inclusion Criterion",
+    "input": ["nhid.continuous_eligible_patients", "nhid.NHID_GY20_T1", "nhid.NHID_GY40_T1"],
+    "operations": ["SELECT c.* FROM nhid.continuous_eligible_patients c JOIN (SELECT DISTINCT g20.PERSON_ID FROM nhid.NHID_GY20_T1 g20 JOIN nhid.NHID_GY40_T1 g40 ON g20.KEY_SEQ = g40.KEY_SEQ WHERE g20.MAIN_SICK = 'I10' OR g20.SUB_SICK = 'I10' OR g40.SICK_SYM = 'I10') h ON c.PERSON_ID = h.PERSON_ID"],
+    "output": "nhid.hypertension_cohort"
+  },
+  {
+    "step_name": "Exclude Fracture History and Prior Medication Use",
+    "input": ["nhid.hypertension_cohort", "nhid.NHID_GY20_T1", "nhid.NHID_GY40_T1", "nhid.NHID_GY60_T1", "nhid.drug_class_map"],
+    "operations": ["SELECT c.* FROM nhid.hypertension_cohort c WHERE c.PERSON_ID NOT IN (SELECT g20.PERSON_ID FROM nhid.NHID_GY20_T1 g20 JOIN nhid.NHID_GY40_T1 g40 ON g20.KEY_SEQ = g40.KEY_SEQ WHERE g20.RECU_FR_DT BETWEEN c.baseline_start AND c.index_date AND (g20.MAIN_SICK IN ('S02','S07','S12','S22','S23','S42','S52','S62','S72','S82','S92') OR g20.SUB_SICK IN ('S02','S07','S12','S22','S23','S42','S52','S62','S72','S82','S92') OR g40.SICK_SYM IN ('S02','S07','S12','S22','S23','S42','S52','S62','S72','S82','S92')) UNION SELECT g20.PERSON_ID FROM nhid.NHID_GY60_T1 g60 JOIN nhid.NHID_GY20_T1 g20 ON g60.KEY_SEQ = g20.KEY_SEQ JOIN nhid.drug_class_map m ON LEFT(g60.GNL_NM_CD, 4) = m.gnl_nm_cd_4 WHERE g60.RECU_FR_DT BETWEEN c.baseline_start AND c.index_date OR g60.RECU_FR_DT BETWEEN 20020101 AND 20021231)"],
+    "output": "nhid.clean_cohort"
+  },
+  {
+    "step_name": "Classify Exposure and Resolve Index Date Conflicts",
+    "input": ["nhid.clean_cohort"],
+    "operations": ["SELECT PERSON_ID, index_date, drug_class FROM nhid.clean_cohort GROUP BY PERSON_ID, index_date HAVING COUNT(DISTINCT drug_class) = 1"],
+    "output": "nhid.exposure_cohort"
+  },
+  {
+    "step_name": "Identify Incident Fracture Outcome",
+    "input": ["nhid.exposure_cohort", "nhid.NHID_GY20_T1", "nhid.NHID_GY40_T1"],
+    "operations": ["SELECT e.PERSON_ID, e.index_date, MIN(g20.RECU_FR_DT) AS outcome_date FROM nhid.exposure_cohort e JOIN (SELECT g20.PERSON_ID, g20.RECU_FR_DT FROM nhid.NHID_GY20_T1 g20 JOIN nhid.NHID_GY40_T1 g40 ON g20.KEY_SEQ = g40.KEY_SEQ WHERE g20.MAIN_SICK IN ('S02','S07','S12','S22','S23','S42','S52','S62','S72','S82','S92') OR g20.SUB_SICK IN ('S02','S07','S12','S22','S23','S42','S52','S62','S72','S82','S92') OR g40.SICK_SYM IN ('S02','S07','S12','S22','S23','S42','S52','S62','S72','S82','S92')) g20 ON e.PERSON_ID = g20.PERSON_ID WHERE g20.RECU_FR_DT >= e.index_date GROUP BY e.PERSON_ID, e.index_date"],
+    "output": "nhid.outcome_cohort"
+  },
+  {
+    "step_name": "Extract Baseline Covariates",
+    "input": ["nhid.exposure_cohort", "nhid.NHID_JK", "nhid.NHID_GY20_T1", "nhid.NHID_GY60_T1", "drug.comor", "drug.comedi"],
+    "operations": ["SELECT e.PERSON_ID, e.index_date, e.drug_class, j.SEX, j.AGE_GROUP, j.CTRB_PT_TYPE_CD, j.DFAB_GRD_CD, COUNT(DISTINCT d.diag) AS comorbidity_count, COUNT(DISTINCT u.GNL_NM_CD) AS concomitant_med_count, COUNT(g20.KEY_SEQ) AS healthcare_utilization FROM nhid.exposure_cohort e JOIN nhid.NHID_JK j ON e.PERSON_ID = j.PERSON_ID LEFT JOIN nhid.NHID_GY20_T1 g20 ON e.PERSON_ID = g20.PERSON_ID AND g20.RECU_FR_DT BETWEEN e.baseline_start AND e.index_date LEFT JOIN drug.comor d ON g20.MAIN_SICK = d.diag OR g20.SUB_SICK = d.diag LEFT JOIN nhid.NHID_GY60_T1 u ON g20.KEY_SEQ = u.KEY_SEQ AND u.RECU_FR_DT BETWEEN e.baseline_start AND e.index_date LEFT JOIN drug.comedi c ON LEFT(u.GNL_NM_CD, 4) = c.code GROUP BY e.PERSON_ID, e.index_date, e.drug_class, j.SEX, j.AGE_GROUP, j.CTRB_PT_TYPE_CD, j.DFAB_GRD_CD"],
+    "output": "nhid.covariate_cohort"
+  },
+  {
+    "step_name": "Calculate Follow-up Duration and Censoring Flags",
+    "input": ["nhid.outcome_cohort", "nhid.covariate_cohort", "nhid.NHID_JK"],
+    "operations": ["SELECT c.*, o.outcome_date, CASE WHEN o.outcome_date IS NOT NULL THEN 1 ELSE 0 END AS event_flag, CASE WHEN o.outcome_date IS NOT NULL THEN o.outcome_date - c.index_date WHEN j.DTH_YM IS NOT NULL AND CAST(j.DTH_YM AS INTEGER) < 20121231 THEN CAST(j.DTH_YM AS INTEGER) - c.index_date ELSE 20121231 - c.index_date END AS follow_up_days, CASE WHEN j.DTH_YM IS NOT NULL THEN 1 ELSE 0 END AS death_censoring, CASE WHEN j.STND_Y IS NULL THEN 1 ELSE 0 END AS insurance_censoring FROM nhid.covariate_cohort c LEFT JOIN nhid.outcome_cohort o ON c.PERSON_ID = o.PERSON_ID JOIN nhid.NHID_JK j ON c.PERSON_ID = j.PERSON_ID"],
+    "output": "nhid.final_cohort_table"
+  },
+  {
+    "step_name": "Export Final Cohort Dataset",
+    "input": ["nhid.final_cohort_table"],
+    "operations": ["COPY nhid.final_cohort_table TO 'cohort.csv' (HEADER, DELIMITER ',')"],
+    "output": "cohort.csv"
+  }
+]

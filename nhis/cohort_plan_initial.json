@@ -1,0 +1,109 @@
+[
+  {
+    "step_name": "Hypertension Diagnosis Extraction",
+    "input": [
+      "nhid.duckdb.NHID_GY20_T1",
+      "nhid.duckdb.NHID_GY40_T1"
+    ],
+    "operations description": "Join nhid.duckdb.NHID_GY40_T1 to nhid.duckdb.NHID_GY20_T1 on KEY_SEQ. Filter rows where SICK_SYM equals 'I10'. Union with nhid.duckdb.NHID_GY20_T1 rows where MAIN_SICK equals 'I10' or SUB_SICK equals 'I10'. Aggregate to one row per PERSON_ID by selecting the minimum RECU_FR_DT as the hypertension diagnosis date.",
+    "output": "cohort_hypertension_candidates"
+  },
+  {
+    "step_name": "Drug Prescription Extraction and Class Mapping",
+    "input": [
+      "nhid.duckdb.NHID_GY60_T1",
+      "nhid.duckdb.NHID_GY20_T1",
+      "drug.duckdb.doi"
+    ],
+    "operations description": "Join nhid.duckdb.NHID_GY60_T1 to nhid.duckdb.NHID_GY20_T1 on KEY_SEQ. Filter rows where the first four characters of GNL_NM_CD match doi.gnl_nm_cd_4. Join the result with drug.duckdb.doi on the matched drug code to retrieve the group column (1 for CCB, 0 for DU). Aggregate to one row per PERSON_ID and RECU_FR_DT by selecting the maximum KEY_SEQ to resolve duplicate claim identifiers for the same date.",
+    "output": "drug_prescriptions_mapped"
+  },
+  {
+    "step_name": "Index Date Identification and Exposure Classification",
+    "input": [
+      "drug_prescriptions_mapped"
+    ],
+    "operations description": "Filter prescriptions where RECU_FR_DT falls between 2003 and 2012 inclusive. For each PERSON_ID, identify the earliest RECU_FR_DT. Group by PERSON_ID and earliest date to detect simultaneous prescriptions of both CCB and DU. Apply an exclusion rule to drop PERSON_IDs with multiple group values on the same date. Aggregate to one row per PERSON_ID retaining the earliest date and corresponding group as exposure_class.",
+    "output": "index_dates_candidates"
+  },
+  {
+    "step_name": "Baseline Period Definition and Prior Exclusion",
+    "input": [
+      "index_dates_candidates",
+      "drug_prescriptions_mapped"
+    ],
+    "operations description": "Calculate the baseline start date as index_date minus 365 days. Filter drug_prescriptions_mapped for prescriptions occurring in 2002 or within the baseline period. Aggregate to one row per PERSON_ID with a binary indicator for prior CCB or DU use. Exclude PERSON_IDs where the indicator equals 1.",
+    "output": "eligible_index_dates_post_prior_exclusion"
+  },
+  {
+    "step_name": "Baseline Fracture Exclusion",
+    "input": [
+      "eligible_index_dates_post_prior_exclusion",
+      "nhid.duckdb.NHID_GY20_T1",
+      "nhid.duckdb.NHID_GY40_T1"
+    ],
+    "operations description": "Join nhid.duckdb.NHID_GY40_T1 to nhid.duckdb.NHID_GY20_T1 on KEY_SEQ. Filter for diagnosis codes in SICK_SYM, MAIN_SICK, or SUB_SICK matching the specified fracture prefixes (S02, S07, S12, S22, S23, S42, S52, S62, S72, S82, S92) within the baseline period. Aggregate to one row per PERSON_ID with a binary indicator for baseline fracture presence. Exclude PERSON_IDs where the indicator equals 1.",
+    "output": "eligible_index_dates_post_fracture_exclusion"
+  },
+  {
+    "step_name": "Continuous Eligibility Verification",
+    "input": [
+      "eligible_index_dates_post_fracture_exclusion",
+      "nhid.duckdb.NHID_JK"
+    ],
+    "operations description": "For each PERSON_ID, determine the set of calendar years overlapping the 365-day baseline period. Join with nhid.duckdb.NHID_JK on PERSON_ID and match STND_Y to each required calendar year. Aggregate to one row per PERSON_ID by verifying coverage for all overlapping years. Exclude PERSON_IDs missing STND_Y for any overlapping year.",
+    "output": "eligible_cohort_base"
+  },
+  {
+    "step_name": "Baseline Demographics and Socioeconomic/Disability Extraction",
+    "input": [
+      "eligible_cohort_base",
+      "nhid.duckdb.NHID_JK"
+    ],
+    "operations description": "Join nhid.duckdb.NHID_JK to eligible_cohort_base on PERSON_ID. Extract SEX, AGE_GROUP, CTRB_PT_TYPE_CD, and DFAB_GRD_CD. Aggregate to one row per PERSON_ID by selecting the record with the STND_Y closest to the index date.",
+    "output": "baseline_demographics"
+  },
+  {
+    "step_name": "Baseline Comorbidity Extraction",
+    "input": [
+      "eligible_cohort_base",
+      "nhid.duckdb.NHID_GY20_T1",
+      "nhid.duckdb.NHID_GY40_T1",
+      "drug.duckdb.comor"
+    ],
+    "operations description": "Join nhid.duckdb.NHID_GY40_T1 to nhid.duckdb.NHID_GY20_T1 on KEY_SEQ. Filter for diagnosis codes in SICK_SYM, MAIN_SICK, or SUB_SICK that match drug.duckdb.comor.code within the baseline period. Aggregate to one row per PERSON_ID by creating a binary indicator for each mapped comorbidity code.",
+    "output": "baseline_comorbidities"
+  },
+  {
+    "step_name": "Baseline Concomitant Medication Extraction",
+    "input": [
+      "eligible_cohort_base",
+      "nhid.duckdb.NHID_GY60_T1",
+      "nhid.duckdb.NHID_GY20_T1",
+      "drug.duckdb.comedi"
+    ],
+    "operations description": "Join nhid.duckdb.NHID_GY60_T1 to nhid.duckdb.NHID_GY20_T1 on KEY_SEQ. Filter for drug codes in GNL_NM_CD that match drug.duckdb.comedi.code within the baseline period. Aggregate to one row per PERSON_ID by creating a binary indicator for each mapped concomitant medication code.",
+    "output": "baseline_concomitant_meds"
+  },
+  {
+    "step_name": "Baseline Healthcare Utilization Extraction",
+    "input": [
+      "eligible_cohort_base",
+      "nhid.duckdb.NHID_GY20_T1"
+    ],
+    "operations description": "Count the number of claims in nhid.duckdb.NHID_GY20_T1 within the baseline period per PERSON_ID. Aggregate to one row per PERSON_ID with the total claim count.",
+    "output": "baseline_healthcare_utilization"
+  },
+  {
+    "step_name": "Final Cohort Assembly",
+    "input": [
+      "eligible_cohort_base",
+      "baseline_demographics",
+      "baseline_comorbidities",
+      "baseline_concomitant_meds",
+      "baseline_healthcare_utilization"
+    ],
+    "operations description": "Perform LEFT JOINs of baseline_demographics, baseline_comorbidities, baseline_concomitant_meds, and baseline_healthcare_utilization to eligible_cohort_base on PERSON_ID. Replace NULL values for binary indicators and claim counts with 0. Ensure the final table contains exactly one row per PERSON_ID with the index date, exposure class, and all baseline covariates.",
+    "output": "final_cohort"
+  }
+]
