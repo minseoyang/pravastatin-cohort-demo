@@ -307,7 +307,6 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
       </section>
       <section class="intro-cta" aria-labelledby="introCtaHeading">
         <h2 id="introCtaHeading">See the agents work on a real study</h2>
-        <p>Pick a recorded research question and watch the workflow run from question to results.</p>
         <a class="button primary intro-cta-button" href="#/question">Explore Study Examples <span aria-hidden="true">→</span></a>
       </section>
     </section>`;
@@ -342,6 +341,8 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
     introWorkflow=id;
     document.querySelectorAll('[data-intro-workflow]:not([data-intro-input])').forEach(button=>
       button.setAttribute('aria-pressed',String(button.dataset.introWorkflow===id)));
+    const dots=detail.querySelector('.intro-slide-dots'),on=dots&&dots.querySelector('[aria-pressed="true"]');
+    if(on&&dots.scrollWidth>dots.clientWidth)dots.scrollTo({left:on.offsetLeft-dots.offsetLeft-(dots.clientWidth-on.offsetWidth)/2,behavior:'smooth'});
     view.setAttribute('aria-live',auto?'off':'polite');
     view.innerHTML=`<div class="intro-slide entering${back?' from-left':''}">${guideSection(id)}</div>`;
     $('introSlideCount').textContent=`${introOrder.indexOf(id)+1} / ${introOrder.length}`;

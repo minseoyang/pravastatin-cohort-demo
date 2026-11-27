@@ -198,3 +198,101 @@ pre.recorded-output.is-typing { scroll-behavior: auto; }
   .output-files .output-file { white-space: nowrap; }
   .output-files .output-file-name { overflow-wrap: normal; white-space: nowrap; }
 }
+@media (max-width: 760px) {
+  /* Study examples: each card grows to fit its whole content. */
+  .study-card-grid { display: flex; flex-direction: column; }
+  .study-card-grid > * { flex: 0 0 auto; }
+  .study-card { height: auto; min-height: 0; }
+  .study-card-content { flex: 0 0 auto; height: auto; overflow: visible; }
+}
+
+/* Mobile step pages: the page itself scrolls; the workflow bar keeps its sideways scroll. */
+@media (max-width: 760px) {
+  #main.with-workflow { display: block; overflow-y: auto; overflow-x: hidden; }
+  #main.with-workflow > .screen { display: flex; flex-direction: column; gap: 12px; height: auto; min-height: 0; margin-top: 12px; }
+  #main.with-workflow > .screen > *,
+  #main.with-workflow :is(.recorded-plan, .strategy-layout, .script-workspace, .dataset-layout, .results-layout) > * { flex: 0 0 auto; }
+  #main.with-workflow :is(.recorded-plan, .strategy-layout, .script-workspace, .dataset-layout, .results-layout) {
+    display: flex; flex-direction: column; gap: 12px; height: auto; min-height: 0;
+  }
+  #main.with-workflow .panel { height: auto; min-height: 0; max-height: none; }
+  /* Text (protocol, plans, scripts) shows in full; only the wide tables keep their own scroll box. */
+  #main.with-workflow .scroll-region, #main.with-workflow .dataset-grid { flex: 0 0 auto; height: auto; max-height: none; overflow-y: visible; }
+  #main.with-workflow :is(.dataset-table, .xl-sheet) { max-height: 70vh; overflow: auto; min-width: 0; width: 100%; }
+  #main.with-workflow .dataset-grid { min-width: 0; width: 100%; }
+  /* The Planning input repeats the protocol already shown in full on the Strategy page: keep it short so the plan is close by. */
+  #main.with-workflow .recorded-plan > .output-panel:first-child .scroll-region { max-height: 40vh; overflow-y: auto; }
+  #main.with-workflow .output-panel, #main.with-workflow .script-viewer { overflow: visible; }
+}
+@media (max-width: 760px) {
+  /* Room for the NOW tag between the group label and the block. */
+  .journey-replay .journey-group { --group-label-gap: 12px; }
+}
+@media (max-width: 760px) {
+  /* Phones draw the scrollbar over the content: leave room under the groups so it never covers their bottom edge. */
+  .journey-replay .journey-track { padding-bottom: 12px; margin-bottom: -6px; }
+}
+/* Narrow screens: single-block groups never get narrower than their label ("STUDY DESIGN"). */
+.journey-replay .journey-groups {
+  grid-template-columns: repeat(2, minmax(112px, 1fr)) minmax(0, 2.9fr) minmax(112px, 1fr) minmax(0, 2.9fr) minmax(112px, 1fr);
+  min-width: 1100px;
+}
+@media (max-width: 760px) {
+  /* Coding pages: about five scripts visible, the rest scroll inside the list. */
+  #main.with-workflow .script-list .scroll-region,
+  #main.with-workflow #codeList { max-height: 182px; overflow-y: auto; }
+}
+
+/* Overview on mobile: Agent workflow as a compact vertical timeline. */
+@media (max-width: 760px) {
+  .journey-intro { --step-height: 38px; --journey-gap: 10px; }
+  .journey-intro .journey-groups { position: relative; gap: 10px; }
+  .journey-intro .journey-groups::before {
+    content: ""; position: absolute; inset-inline-start: 6px; inset-block: 14px;
+    width: 2px; border-radius: 2px; background: var(--muted-teal);
+  }
+  .journey-intro .journey-group {
+    grid-template-columns: 96px minmax(0, 1fr); grid-template-rows: auto; align-items: center; gap: 8px;
+    padding: 0 0 0 24px; border: 0; border-radius: 0; background: none;
+  }
+  .journey-intro :is(.g-prep, .g-analysis) {
+    grid-template-columns: minmax(0, 1fr); gap: 5px;
+    padding: 8px 8px 8px 24px; margin-inline-start: 0;
+  }
+  .journey-intro :is(.g-prep, .g-analysis) .journey-nodes {
+    padding: 6px; border-radius: 10px; background: color-mix(in srgb, var(--pale-blue) 30%, var(--panel));
+  }
+  .journey-intro :is(.g-prep, .g-analysis) { padding: 0 0 0 24px; }
+  .journey-intro .journey-group-label { font-size: .64rem; white-space: normal; line-height: 1.25; }
+  /* Timeline dot for every group (replaces the arrows between boxes). */
+  .journey-intro .journey-groups > .journey-group::before {
+    content: ""; display: block; position: absolute; inset-inline-start: 1px; inset-inline-end: auto;
+    inset-block-start: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translateY(-50%);
+    border: 2px solid var(--deep-teal); background: var(--panel);
+  }
+  .journey-intro .journey-groups > :is(.g-prep, .g-analysis)::before { inset-block-start: 1px; transform: none; }
+  .journey-intro .journey-groups > .journey-group::after { display: none; }
+  .journey-intro .journey-step { padding: 4px 3px; }
+  .journey-intro .journey-step strong { max-width: none; font-size: .8rem; line-height: 1.2; }
+  .journey-intro :is(.g-prep, .g-analysis) .journey-step strong { font-size: .72rem; white-space: nowrap; }
+
+  /* Guide card tabs: one sideways-scrolling row, count and Pause at its end. */
+  .intro-slide-bar { flex-wrap: nowrap; gap: 8px; }
+  .intro-slide-dots { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-block: 2px; }
+  .intro-slide-dots::-webkit-scrollbar { display: none; }
+  .intro-slide-dots button { flex: 0 0 auto; white-space: nowrap; }
+  .intro-slide-count, .intro-slide-toggle { flex-shrink: 0; }
+}
+@media (max-width: 760px) {
+  /* Single-block groups: the block sits in the middle column, lined up with the middle block of each phase row. */
+  .journey-intro .journey-group:not(.g-prep):not(.g-analysis) { grid-template-columns: minmax(0, 1fr); }
+  .journey-intro .journey-group:not(.g-prep):not(.g-analysis) .journey-group-label {
+    position: absolute; inset-inline-start: 24px; inset-block-start: 50%; transform: translateY(-50%);
+    width: calc((100% - 36px) / 3); padding: 0;
+  }
+  .journey-intro .journey-group:not(.g-prep):not(.g-analysis) .journey-nodes {
+    grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row; padding-inline: 6px;
+  }
+  .journey-intro .journey-group:not(.g-prep):not(.g-analysis) .journey-node { grid-column: 2; }
+  .journey-intro .journey-group:not(.g-prep):not(.g-analysis) .journey-step strong { font-size: .72rem; }
+}
