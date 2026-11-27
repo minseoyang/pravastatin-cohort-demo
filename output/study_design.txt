@@ -1,0 +1,25 @@
+1) Research objective
+To evaluate whether pravastatin use is associated with short-term mortality among ICU patients with sepsis.
+
+2) Research data source
+Medical Information Mart for Intensive Care IV (MIMIC-IV), version 3.1, utilizing longitudinal electronic health record data including hospital admissions, ICU stays, medication orders and administrations, diagnosis codes, laboratory results, vital signs, and microbiology cultures.
+
+3) Study target
+Adult patients (≥18 years) admitted to the ICU with sepsis. Sepsis will be phenotyped using ICD-9/10 codes for sepsis, severe sepsis, or septic shock recorded in the diagnoses table, combined with evidence of infection (positive microbiology cultures or initiation of broad-spectrum antibiotics within 48 hours of ICU entry). 
+Temporal sequence: Cohort entry occurs at ICU admission -> Baseline covariates are derived from pre-admission records and the first 24 hours of the ICU stay -> Exposure is assessed during the first 48 hours of the ICU stay -> Outcome follow-up begins at ICU admission and extends to 28 days.
+
+4) Exposure definition
+Pravastatin exposure is defined as a pharmacy or prescription record for pravastatin initiated within the first 48 hours of the qualifying ICU stay. The comparator group comprises septic ICU patients who did not receive pravastatin during this window. To isolate the specific effect of pravastatin and minimize confounding by class, patients receiving any other statin within the same 48-hour period will be excluded from the primary analysis. Prior statin use (pharmacy records >7 days before admission) will be recorded as a baseline characteristic but will not alter exposure classification.
+
+5) Outcome definition
+Short-term mortality is defined as 28-day all-cause mortality from the time of ICU admission. Mortality status will be ascertained using in-hospital death timestamps and the hospital expiration flag. Patients discharged alive before 28 days will be censored at discharge. This follow-up period aligns with the acute phase of sepsis management and is fully supported by the available admission and death records.
+
+6) Confounders
+Confounders are restricted to baseline characteristics measured prior to or within the first 24 hours of ICU admission to ensure temporal precedence over exposure and outcome, thereby avoiding collider and time-dependent bias. Baseline covariates include: demographics (age, sex, race, insurance), comorbidities (derived from ICD codes prior to admission), baseline severity of illness (SAPS II or SOFA score components calculated from early vital signs, laboratory values, and initial organ support), and concurrent medications (vasopressors, corticosteroids, broad-spectrum antibiotics, insulin). Variables reflecting clinical deterioration or interventions initiated after pravastatin administration (e.g., mechanical ventilation, renal replacement therapy, delayed vasopressor initiation, or later laboratory abnormalities) will be explicitly excluded from the confounder set.
+
+7) Statistical strategy
+A propensity score framework will be employed to control for measured confounding. The propensity score will be estimated via multivariable logistic regression predicting pravastatin initiation based on the predefined baseline confounders. Inverse probability of treatment weighting (IPTW) using stabilized weights will be applied to create a pseudo-population where exposure assignment is independent of observed baseline covariates. Covariate balance will be evaluated using standardized mean differences (target <0.1). The weighted cohort will be analyzed using a Cox proportional hazards model (or weighted logistic regression if the proportional hazards assumption is violated) to estimate the association between pravastatin and 28-day mortality. Competing risk methods (Fine-Gray subdistribution hazards) will be used as a sensitivity analysis to account for early hospital discharge.
+
+8) Analysis method
+Primary results will be reported as hazard ratios with 95% confidence intervals for 28-day mortality comparing pravastatin users to non-users. Subgroup analyses will stratify by age, baseline sepsis severity (SAPS II tertiles), and presence of organ failure at baseline. Missing covariate data will be addressed using multiple imputation by chained equations. All analyses will be conducted at the ICU-stay level, with robust standard errors to account for multiple stays per patient. 
+Limitation: The provided data do not capture outpatient medication use, lipid profiles, or clinical indications for therapy. Consequently, baseline cardiovascular risk, chronic pravastatin exposure, and the specific indication for in-ICU pravastatin administration (e.g., pleiotropic effect vs. continuation of home therapy) cannot be directly measured, leaving residual confounding by indication that cannot be fully adjusted for.
