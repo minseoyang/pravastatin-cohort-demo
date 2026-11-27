@@ -238,7 +238,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
     const limit=replay&&!run?navigationLimit(section):0;
     const choosing=false;
     const step=(n,i)=>{
-      const st=intro?'idle':current.includes(n.id)?'current':replay&&i<at?'done':'next';
+      const st=intro?'idle':current.includes(n.id)?'current':replay&&(i<at||state.autoDone&&!run)?'done':'next';
       const body=`${st==='current'&&replay?'<span class="journey-now">Now</span>':''}<strong>${esc(n.title)}</strong>`;
       let el;
       if(intro)el=n.id==='question'?`<button type="button" class="journey-step" data-intro-workflow="${n.guide}" data-intro-input aria-controls="introWorkflowDetail">${body}</button>`:`<button type="button" class="journey-step" data-intro-workflow="${n.guide}" aria-controls="introWorkflowDetail" aria-pressed="${introWorkflow===n.guide}">${body}</button>`;
@@ -254,7 +254,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
     const groups=journeyGroups.map(g=>{
       const items=journeyNodes.map((n,i)=>[n,i]).filter(([n])=>n.group===g.id);
       const active=items.some(([n])=>current.includes(n.id));
-      const done=replay&&at>=0&&items.every(([,i])=>i<at);
+      const done=replay&&at>=0&&(state.autoDone&&!run&&!active||items.every(([,i])=>i<at));
       return `<li class="journey-group g-${g.id}${active?' is-active':''}${done?' is-done':''}"><span class="journey-group-label">${g.label}</span><ol class="journey-nodes">${items.map(([n,i])=>step(n,i)).join('')}</ol></li>`;
     }).join('');
     const now=journeyNodes.find(n=>n.id===current[0]);
@@ -304,6 +304,11 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
         </div>
         <div class="intro-slide-progress" aria-hidden="true"><span class="intro-progress-fill" style="animation-duration:${INTRO_SLIDE_SECONDS}s"></span></div>
         <div class="intro-slide-view" id="introSlideView" aria-live="polite"><div class="intro-slide">${guideSection(introWorkflow)}</div></div>
+      </section>
+      <section class="intro-cta" aria-labelledby="introCtaHeading">
+        <h2 id="introCtaHeading">See the agents work on a real study</h2>
+        <p>Pick a recorded research question and watch the workflow run from question to results.</p>
+        <a class="button primary intro-cta-button" href="#/question">Explore Study Examples <span aria-hidden="true">→</span></a>
       </section>
     </section>`;
   }
@@ -451,7 +456,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
     return `<header class="screen-heading"><div><h1>${esc(title)}</h1>${subtitle?`<p>${esc(subtitle)}</p>`:''}</div>${actions?`<div class="heading-actions">${actions}</div>`:''}</header>`;
   }
   function phaseFooter(previous,path='',lockReason=''){
-    return `<footer class="automation-footer"><span></span>${path?'':'<button class="button primary" data-restart>Home</button>'}</footer>`;
+    return path?`<footer class="automation-footer"><span></span></footer>`:'';
   }
   function guard(){return `<section class="screen"><header class="screen-heading"><div><span class="eyebrow">HYBRID COHORT AUTOMATION</span><h1>Start with the research question.</h1></div></header><section class="panel empty-state"><span class="empty-icon" aria-hidden="true">?</span><h2>One question starts the process.</h2><p>This replay follows the recorded study. Open it to continue to this step.</p><button class="button primary" data-open-recorded>Open the connected study</button><a class="text-button" href="#/question">Enter a research question</a></section></section>`;}
   function renderQuestionInput(example=null){return `<section class="screen question-screen ${example?'study-preview':''}">${phaseHead(example?'Explore this example question.':'Start with your research question.',example?'The question is available to inspect. Its recorded automation artifacts have not been connected yet.':'Your question is the starting point. The Hybrid setup and database are already configured.','<a class="button quiet" href="#/question">All study examples</a>')}<div class="question-layout"><form class="panel question-form" id="questionForm"><div class="question-form-title"><span class="eyebrow">THE ONLY INPUT FROM YOU</span><h2>${example?esc(example.title):'What do you want to investigate?'}</h2></div><div class="question-field-area"><label for="researchQuestion">Research question</label><textarea id="researchQuestion" spellcheck="false" ${example?'readonly':''} required maxlength="1200" placeholder="Describe the population, exposure, and outcome you want to study…">${esc(state.draft)}</textarea><p class="question-field-note">A short question is enough. The Strategy Agent specifies the study conditions.</p><p id="questionError" class="question-error" role="alert" hidden></p><button class="text-button" type="button" id="useConnectedQuestion">Use the connected study question</button></div><div class="question-submit"><div><span class="tag frontier-tag">${example?'Question preview':'Recorded study'}</span><p>${example?'No recorded automation run is connected for this question.':'Replay the connected artifacts for this question.'}</p></div><button class="button primary" type="submit" ${example?'disabled':''}>${example?'Replay not connected':'Start Hybrid replay'}</button></div></form><aside class="question-context"><section class="panel question-promise"><span class="eyebrow">FROM YOUR QUESTION</span><h2>${example?esc(example.title):'A specified study.<br>An ordered plan.<br>Executable code.'}</h2><p>${example?'An example research question. Choose the connected study to explore a recorded Hybrid replay.':'Follow the outputs as one Agent hands them to the next.'}</p><button class="text-button" type="button" data-process-details>What happens after I start?</button></section><section class="panel preset-card"><span class="eyebrow">PRECONFIGURED FOR THIS STUDY</span><dl><div><dt>Data environment</dt><dd>MIMIC-IV 3.1</dd></div><div><dt>Generation</dt><dd>Frontier models</dd></div><div><dt>Data access & repair</dt><dd>Local environment</dd></div></dl><span class="small-note">No database or model setup is requested from the visitor.</span></section></aside></div><div class="question-bottom"><span>Question input</span><span>Study specification</span><span>Step-by-step planning</span><span>Code & local execution</span><span>Result analysis</span></div></section>`;}
@@ -1089,38 +1094,49 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   /* ---------- Auto-play across the step pages ---------- */
   let autoTimer=null,autoTick=null,autoDeadline=0;
   function autoClear(){clearTimeout(autoTimer);clearInterval(autoTick);autoTimer=autoTick=null;}
-  function autoText(text){const el=$('autoStatus');if(el)el.textContent=text;}
-  function autoSchedule(ms,label,fn){
-    autoClear();autoDeadline=performance.now()+ms;
-    const upd=()=>autoText(`${label} in ${Math.max(0,Math.ceil((autoDeadline-performance.now())/1000))}s`);
-    upd();autoTick=setInterval(upd,250);
-    autoTimer=setTimeout(()=>{autoClear();if(!state.autoPaused)fn();},ms);
+  /* One status line for the whole replay: always says what is happening now (busy) or what just finished (done). */
+  function autoText(text,kind='busy'){
+    const el=$('autoStatus');if(!el)return;
+    el.className='auto-status is-'+kind;
+    el.innerHTML=`${kind==='busy'?'<span class="auto-spin" aria-hidden="true"></span>':'<span class="auto-check" aria-hidden="true">✓</span>'}<span>${esc(text)}</span>`;
   }
-  const autoDwell={read:5000,plan:5500,code:4500,dataset:5500,choose:4000};
+  const autoPause={read:1800,plan:1800,code:1800,dataset:3500};
   function autoStep(){
     autoClear();
     if(!state.started||!route||route.section==='question'||!paths.includes(route.section)||route.section==='run')return;
-    if(state.autoPaused){autoText('Auto-play paused');return;}
+    if(state.autoDone){autoText('Workflow complete · click any step to review it','done');return;}
     const sec=route.section,d=route.detail,C=pipes().cohort,A=pipes().analysis;
-    const next=(ms,path)=>autoSchedule(ms+Math.max(0,typingUntil-performance.now()),'Next step',()=>handoff(path));
+    /* While the output is still being written, say so; then show what finished, pause briefly, and hand off. */
+    const next=(writing,finished,pause,path)=>{
+      const go2=()=>{autoText(finished,'done');autoTimer=setTimeout(()=>{autoClear();if(!state.autoPaused)handoff(path);},pause);};
+      const wait=typingUntil-performance.now();
+      if(wait>0){autoText(writing);autoTimer=setTimeout(go2,wait);}else go2();
+    };
     if(sec==='strategy'){
-      if(state.generating)autoText('Strategy Agent is writing the protocol…');
-      else if(!state.generated){autoText('Strategy Agent is writing the protocol…');autoTimer=setTimeout(()=>{if(route.section==='strategy'&&!state.generated&&!state.generating)runStrategyGeneration();},1200);}
-      else next(autoDwell.read,'cohort');
+      if(state.generating||!state.generated)autoText('Strategy Agent is writing the study protocol…');
+      if(!state.generated&&!state.generating)autoTimer=setTimeout(()=>{if(route.section==='strategy'&&!state.generated&&!state.generating)runStrategyGeneration();},1200);
+      else if(state.generated)next('Strategy Agent is writing the study protocol…','Study protocol ready · passing it to the Planning Agent',autoPause.read,'cohort');
     }else if(sec==='cohort'){
-      if(d==='coding'&&C.run.planReady){if(C.run.status!=='done')autoText('Coding Agent is running the scripts…');else next(autoDwell.code,'dataset');}
-      else if(!C.run.planReady)autoText('Planning Agent is writing the plan…');
-      else next(autoDwell.plan,'cohort/coding');
-    }else if(sec==='dataset')next(autoDwell.dataset,'analysis/planning');
+      if(d==='coding'&&C.run.planReady){if(C.run.status!=='done')autoText('Coding Agent is writing and running the preprocessing scripts…');else next('','Preprocessing scripts finished · cohort dataset built',autoPause.code,'dataset');}
+      else if(!C.run.planReady)autoText('Planning Agent is writing the preprocessing plan…');
+      else next('Planning Agent is writing the preprocessing plan…','Preprocessing plan ready · passing it to the Coding Agent',autoPause.plan,'cohort/coding');
+    }else if(sec==='dataset')next('','Cohort dataset ready · passing it to the analysis phase',autoPause.dataset,'analysis/planning');
     else if(sec==='analysis'){
-      if(d==='coding'&&A.run.planReady){if(A.run.status!=='done')autoText('Coding Agent is running the analysis…');else next(autoDwell.code,'results');}
-      else if(!A.run.planReady)autoText('Planning Agent is writing the plan…');
-      else next(autoDwell.plan,'analysis/coding');
-    }else if(sec==='results')autoText('Auto-play complete');
+      if(d==='coding'&&A.run.planReady){if(A.run.status!=='done')autoText('Coding Agent is writing and running the analysis scripts…');else next('','Analysis scripts finished · results produced',autoPause.code,'results');}
+      else if(!A.run.planReady)autoText('Planning Agent is writing the analysis plan…');
+      else next('Planning Agent is writing the analysis plan…','Analysis plan ready · passing it to the Coding Agent',autoPause.plan,'analysis/coding');
+    }else if(sec==='results'){state.autoDone=true;autoText('Workflow complete · click any step to review it','done');}
   }
   function jumpTo(id){
     const order=['strategy','pPlan','pCode','pRun','dataset','aPlan','aCode','aRun','results'],k=order.indexOf(id),C=pipes().cohort,A=pipes().analysis;
     const n=journeyNodes.find(x=>x.id===id);if(!n||k<0)return;
+    if(state.autoDone){
+      /* After a full run, steps open in their finished state; nothing replays. */
+      state.genToken++;Object.assign(state,{generating:false,generated:true,typeStrategy:false});
+      for(const R of [C.run,A.run]){R.token++;Object.assign(R,{planReady:true,status:'done',typePlan:false});}
+      const c=recordedCohort();if(c)state.analysisDataset=c.name;
+      go(stagePath(n.href));return;
+    }
     if(k>=1){state.genToken++;state.generating=false;state.generated=true;}
     if(k>=2)C.run.planReady=true;
     if(k>=4){C.run.token++;C.run.status='done';}
@@ -1139,7 +1155,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
   const ioObserver=new MutationObserver(()=>ioLabels());
   queueMicrotask(()=>{const m=document.getElementById('main');if(m)ioObserver.observe(m,{childList:true,subtree:true});});
   function resetAll(){
-    Object.assign(state,{studyId:'pravastatin',reached:0,question:recordedQuestion,draft:recordedQuestion,started:false,exampleId:null,generated:false,generating:false,analysisDataset:''});state.genToken++;
+    Object.assign(state,{studyId:'pravastatin',reached:0,question:recordedQuestion,draft:recordedQuestion,started:false,exampleId:null,generated:false,generating:false,analysisDataset:'',autoDone:false});state.genToken++;
     for(const R of [cohortRun,analysisRun,...Object.values(nhisPipes||{}).map(P=>P.run)]){R.token++;Object.assign(R,{status:'idle',selected:1,planReady:false});}Object.assign(datasetView,{page:0,filter:''});resultView.file=null;resultView.sheet=null;featureId='handoffs';introWorkflow='';state.autoPaused=false;autoClear();runState.token++;runState.status='idle';runState.studyId=null;
     try{sessionStorage.removeItem('cohortflow-connected-question');sessionStorage.removeItem('cohortflow-reached');}catch{}
   }
@@ -1177,7 +1193,7 @@ window.createAutomationUI = ({D,esc,go,showDialog,rawOutput,outputPanel,toast}) 
       const stage=workflowStages.find(item=>item.id===guideId(button.dataset.stageGuide));
       showDialog(stage.title,guideContent(stage.id),'WORKFLOW GUIDE');
     }));
-    document.querySelectorAll('[data-study-example]').forEach(card=>card.addEventListener('click',e=>{if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;e.preventDefault();const ex=studyExamples.find(x=>x.id===card.dataset.studyExample);startQuestion(ex.question);}));
+    document.querySelectorAll('[data-study-example]').forEach(card=>card.addEventListener('click',e=>{if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;e.preventDefault();const ex=studyExamples.find(x=>x.id===card.dataset.studyExample);resetAll();startQuestion(ex.question);}));
     document.querySelectorAll('[data-current-question]').forEach(b=>b.addEventListener('click',questionDialog));
     document.querySelectorAll('[data-open-recorded]').forEach(b=>b.addEventListener('click',()=>{const target=route&&paths.includes(route.section)&&route.section!=='question'?route.section:'strategy';startQuestion(activeStudy().question,target);}));
     document.querySelectorAll('[data-restart]').forEach(b=>b.addEventListener('click',()=>{resetAll();go('/intro');}));

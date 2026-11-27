@@ -155,6 +155,7 @@
     main.innerHTML=workflow+html;
     main.scrollTop=0;
     document.title=(main.querySelector('.pipeline-screen h1')?.textContent||breadcrumb)+' · Cohort Study Automation';
+    document.querySelectorAll('.site-nav [data-nav]').forEach(a=>{const on=a.dataset.nav==='intro'?route.section==='intro':automation.paths.includes(route.section);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
     bindScreen();automation.bind();
   }
   $('sourceInfoButton')?.addEventListener('click',()=>showDialog(
@@ -167,6 +168,10 @@
     if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;
     e.preventDefault();automation.resetAll();go('/intro');
   });
+  document.querySelectorAll('.site-nav [data-nav]').forEach(a=>a.addEventListener('click',e=>{
+    if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;
+    e.preventDefault();automation.resetAll();go('/'+a.dataset.nav);
+  }));
   $('closeDialog').addEventListener('click',()=>$('detailDialog').close());
   $('detailDialog').addEventListener('click',e=>{const link=e.target.closest('[data-close-dialog]');if(link)$('detailDialog').close();if(e.target===$('detailDialog')){const r=$('detailDialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('detailDialog').close();}});
   document.addEventListener('click',e=>{if(e.target.closest('a[href^="#/"]'))stopPlaying();});
